@@ -8,7 +8,7 @@ local D = ASBuilder_Data
 AB.VERSION = "1.1.0"
 
 -- how many of each a hero can hold in a run
-AB.MAX = { spell = 6, ring = 2, trinket = 2, amulet = 3 }   -- amulet: 1 main + 2 alternatives
+AB.MAX = { spell = 6, ring = 2, trinket = 2, amulet = 4 }   -- amulet: 1 main + 3 alternatives
 -- spells marked to be banished when their card comes up (a run grants up to 3 banishes)
 AB.MAX_BAN = 3
 -- the slot group each kind of pick takes
@@ -569,8 +569,8 @@ end
 -- ---------------------------------------------------------------- picks (on a stage view)
 -- A pick is { t = "spell"|"ring"|"trinket"|"amulet"|"legend", k, r = target rank (0 = max),
 -- ban = a spell to banish, alt = an alternative amulet }. The amulet group holds one main
--- amulet and up to two alternatives: wearing any of them fills the amulet slot.
-AB.MAX_ALT = 2
+-- amulet and up to three alternatives: wearing any of them fills the amulet slot.
+AB.MAX_ALT = 3
 
 -- picks that take a place in the group (a spell marked to banish takes none)
 function AB.CountGroup(b, group)
@@ -667,7 +667,7 @@ function AB.ToggleAlt(b, i)
     end
     p.alt = nil
   else
-    if AB.CountAlts(b) >= AB.MAX_ALT then return false, T("Two alternatives at most.") end
+    if AB.CountAlts(b) >= AB.MAX_ALT then return false, T("Three alternatives at most.") end
     p.alt = true
   end
   return true

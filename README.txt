@@ -24,7 +24,7 @@ PLANNER
     earlier stage takes, or takes a spell an earlier stage banishes, gets a red "!" on its
     tab and a warning strip under the palette. Fix repairs it in one click.
   - Click the icons in the middle to add or remove spells (6), rings (2), trinkets (2) and
-    amulets (1 main + 2 alternatives). The small icon on a legendary amulet shows the spell
+    amulets (1 main + 3 alternatives). The small icon on a legendary amulet shows the spell
     it remakes.
   - The right panel has a tab for each: Spells, Rings, Trinkets, Amulet. Each tab has its
     own priority order (arrows to reorder) and a target per pick:
@@ -36,7 +36,7 @@ PLANNER
     the banish marks), Rings, Trinkets or Amulet. Like every change, Save keeps it.
   - Banish: the Banish button on a spell row (or right-click a spell icon) marks the spell
     to banish when its card comes up. It takes no spell slot; 3 at most.
-  - Alt: on the Amulet tab, mark up to two amulets as alternatives (blue). Wearing the main
+  - Alt: on the Amulet tab, mark up to three amulets as alternatives (blue). Wearing the main
     amulet or any alternative fills the amulet slot.
   - Switching class keeps each class's spells (in every stage): switch back and they return.
   - Changes are a draft until you press Save. Picking another build throws unsaved changes

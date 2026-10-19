@@ -385,7 +385,7 @@ local function RefreshPalette(b)
     if kind ~= "legend" then
       local col = full and "|cff55ff55" or "|cffaaaaaa"
       label = label .. "  " .. col .. have .. "/" .. max .. "|r"
-      if kind == "amulet" then label = label .. "  |cff888888(" .. T("1 main + 2 alternatives") .. ")|r" end
+      if kind == "amulet" then label = label .. "  |cff888888(" .. T("1 main + 3 alternatives") .. ")|r" end
     end
     if kind == "spell" and AB.CountBans(b) > 0 then
       label = label .. "   |cffff5555" .. T("Banish") .. " " .. AB.CountBans(b) .. "/" .. AB.MAX_BAN .. "|r"

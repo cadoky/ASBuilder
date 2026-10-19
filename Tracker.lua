@@ -3,8 +3,8 @@
 --            take or upgrade
 --   SPELLS   every spell that matters: the build's (faded until taken, then a green dot), the
 --            ones you took that it does not want (violet dot) and the ones to banish
---   JEWELRY  what you wear, with what each piece gives right now, and the build's pieces
---            you still miss
+--   JEWELRY  what you wear (green dot: in the build, violet dot: not), with what each piece
+--            gives right now, and the build's pieces you still miss
 
 local AB = ASBuilder
 local W = AB.W
@@ -339,12 +339,7 @@ local function Create()
   f.jewelRows = {}
   for i = 1, JEWEL_ROWS do
     local r = Row(pj, 126)
-    r.check = r:CreateTexture(nil, "OVERLAY")
-    r.check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
-    r.check:SetWidth(14)
-    r.check:SetHeight(14)
-    r.check:SetPoint("LEFT", r.icon, "LEFT", -6, -3)
-    r.check:SetVertexColor(0.35, 1, 0.35)
+    r.icon:SetPoint("LEFT", r, "LEFT", 15, 0)
     f.jewelRows[i] = r
   end
 
@@ -597,13 +592,20 @@ local function FillSpells(b, ev, live)
 end
 
 -- JEWELRY panel: worn pieces (the build's first, by slot) with what they give, then the
--- build's pieces still missing. Returns its height, or nil when it has nothing to show.
+-- build's pieces still missing. With both rings and both trinkets worn, only the amulet's
+-- missing pieces stay. Returns its height, or nil when it has nothing to show.
 local GROUP_ORDER = { "ring", "trinket", "amulet" }
 local function FillJewelry(b, ev, live)
   local pj = f.pJewel
   for i = 1, JEWEL_ROWS do f.jewelRows[i]:Hide() end
   local cls = AB.CurrentClass()
   local items = {}
+  local wc = {}
+  for w = 1, table.getn(live.worn or {}) do
+    local g = live.worn[w].group
+    wc[g] = (wc[g] or 0) + 1
+  end
+  local othersFull = live.inRun and (wc.ring or 0) >= AB.SLOT_CAP.ring and (wc.trinket or 0) >= AB.SLOT_CAP.trinket
   for g = 1, table.getn(GROUP_ORDER) do
     local group = GROUP_ORDER[g]
     for i = 1, table.getn(ev.rows) do
@@ -616,7 +618,7 @@ local function FillJewelry(b, ev, live)
     end
     for i = 1, table.getn(ev.rows) do
       local r = ev.rows[i]
-      if AB.GROUP[r.pick.t] == group and not r.worn and not r.hide then table.insert(items, { row = r, pick = r.pick }) end
+      if AB.GROUP[r.pick.t] == group and not r.worn and not r.hide and not (othersFull and group ~= "amulet") then table.insert(items, { row = r, pick = r.pick }) end
     end
   end
   if table.getn(items) == 0 then return nil end
@@ -641,11 +643,11 @@ local function FillJewelry(b, ev, live)
         if d.pick and d.pick.t == "legend" then cr, cg, cb = 1, 0.5, 0 end
         if d.row then
           r.name:SetTextColor(cr, cg, cb)
-          r.check:Show()
+          Dot(r, GREEN)
         else
-          -- not in the build: dimmed, no tick
+          -- not in the build: dimmed, violet dot
           r.name:SetTextColor(cr * 0.7, cg * 0.7, cb * 0.7)
-          r.check:Hide()
+          Dot(r, VIOLET)
         end
         local short = AB.WornStats(d.worn, cls)
         if short == "" then short = "..." end
@@ -662,7 +664,7 @@ local function FillJewelry(b, ev, live)
         r.icon:SetVertexColor(0.5, 0.5, 0.5)
         r.name:SetText(name)
         r.name:SetTextColor(0.55, 0.55, 0.55)
-        r.check:Hide()
+        Dot(r, nil)
         if d.row.extra then
           r.right:SetText("|cff88bbff" .. T("alt") .. "|r")
         elseif not live.inRun then
