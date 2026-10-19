@@ -29,6 +29,6 @@ New spells and jewelry come from the game itself: double-click `tools/Update-Dat
 
 ## Author
 
-Ulaş Çolaker (Cadoky)
+Cadoky
 
 Azeroth Survivors is a fan game by Aethus. This addon is not affiliated with Blizzard Entertainment.
