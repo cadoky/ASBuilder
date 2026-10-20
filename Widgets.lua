@@ -7,6 +7,98 @@ AB.W = W
 
 W.FLAT = "Interface\\Buttons\\WHITE8X8"
 
+-- ---------------------------------------------------------------- the reading face
+-- Besides the game's own face a player can pick an easier one. Every text and box the addon
+-- draws is noted here with its game face, so a new pick redraws all of them at once. A picked
+-- face is drawn at the size that keeps the game face's width (measured in the game), so no
+-- text grows out of its place.
+local FONT_DIR = "Interface\\AddOns\\ASBuilder\\media\\fonts\\"
+W.FACES = {
+  { key = "classic", label = "Original", tip = "The game's own face." },
+  { key = "inter", label = "Inter", file = FONT_DIR .. "ASB-Inter.ttf",
+    tip = "Clean and modern, made for reading on screens." },
+  { key = "lato", label = "Lato", file = FONT_DIR .. "ASB-Lato.ttf",
+    tip = "Warm and round, easy on the eyes." },
+  { key = "nunito", label = "Nunito", file = FONT_DIR .. "ASB-Nunito.ttf",
+    tip = "Soft, rounded letters." },
+  { key = "lexend", label = "Lexend", file = FONT_DIR .. "ASB-Lexend.ttf",
+    tip = "Wide, open letters made to make reading easier." },
+  { key = "noto", label = "Noto Sans", file = FONT_DIR .. "ASB-NotoSans.ttf",
+    tip = "Plain and very clear." },
+}
+local faceReg = {}     -- every text and box: its game face, size and flags
+local faceBroken = {}  -- faces the game could not load
+local faceScale = {}   -- per picked face and game face: the size factor that keeps the width
+local measure          -- a hidden string to measure faces with
+
+function W.FaceInfo(key)
+  for i = 1, table.getn(W.FACES) do if W.FACES[i].key == key then return W.FACES[i] end end
+  return W.FACES[1]
+end
+
+function W.FaceKey()
+  local f = W.FaceInfo(type(ASBuilderDB) == "table" and ASBuilderDB.font or "classic")
+  if faceBroken[f.key] then return "classic" end
+  return f.key
+end
+
+-- true if the text really draws in this face (the game keeps the old face otherwise)
+local function Loaded(o, file)
+  local got = o:GetFont()
+  if type(got) ~= "string" then return false end
+  local base = string.gsub(string.upper(file), "^.*\\", "")
+  return string.find(string.upper(got), base, 1, true) ~= nil
+end
+
+local function Width(face, size)
+  if not measure then
+    local m = CreateFrame("Frame", nil, UIParent)
+    m:SetAlpha(0)  -- never anchored and never seen: it only measures
+    measure = m:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  end
+  measure:SetFont(face, size)
+  if not Loaded(measure, face) then return nil end
+  measure:SetText("The quick brown fox jumps over the lazy dog, 1234567890.")
+  local w = measure:GetStringWidth()
+  if type(w) ~= "number" or w <= 0 then return nil end
+  return w
+end
+
+local function Factor(file, face)
+  local k = file .. "|" .. face
+  if not faceScale[k] then
+    local a, b = Width(face, 20), Width(file, 20)
+    if a and b then faceScale[k] = math.max(0.75, math.min(1.2, a / b)) else faceScale[k] = 1 end
+  end
+  return faceScale[k]
+end
+
+local function ApplyFace(o, e)
+  local pick = W.FaceInfo(W.FaceKey())
+  if pick.file then
+    o:SetFont(pick.file, math.floor(e.size * Factor(pick.file, e.face) + 0.5), e.flags)
+    if Loaded(o, pick.file) then return end
+    faceBroken[pick.key] = true  -- the game cannot draw it: back to its own face
+  end
+  o:SetFont(e.face, e.size, e.flags)
+end
+
+-- notes a text or box with its game face and draws it in the picked one
+function W.Face(o)
+  if faceReg[o] or not o.GetFont then return o end
+  local face, size, flags = o:GetFont()
+  if type(face) == "string" and type(size) == "number" then
+    faceReg[o] = { face = face, size = size, flags = type(flags) == "string" and flags or "" }
+    if W.FaceKey() ~= "classic" then ApplyFace(o, faceReg[o]) end
+  end
+  return o
+end
+
+-- redraws every text after a new pick
+function W.ApplyFaces()
+  for o, e in pairs(faceReg) do ApplyFace(o, e) end
+end
+
 function W.Panel(f, alpha, border)
   f:SetBackdrop({ bgFile = W.FLAT, edgeFile = W.FLAT, tile = false, tileSize = 0, edgeSize = 1,
     insets = { left = 1, right = 1, top = 1, bottom = 1 } })
@@ -18,7 +110,7 @@ end
 function W.Text(parent, font, justify)
   local fs = parent:CreateFontString(nil, "OVERLAY", font or "GameFontHighlightSmall")
   fs:SetJustifyH(justify or "LEFT")
-  return fs
+  return W.Face(fs)
 end
 
 -- a texture that lights a button up under the mouse
@@ -187,19 +279,19 @@ function W.Check(parent, label, onChange)
 end
 
 -- a one-line text box
-function W.Edit(parent, name, width, height)
+function W.Edit(parent, name, width, height, font)
   local e = CreateFrame("EditBox", name, parent)
   e:SetWidth(width)
   e:SetHeight(height or 22)
   W.Panel(e, 1, 0.3)
   e:SetBackdropColor(0.02, 0.02, 0.03, 1)
-  e:SetFontObject(ChatFontNormal)
+  e:SetFontObject(font or ChatFontNormal)
   e:SetTextInsets(6, 6, 0, 0)
   e:SetAutoFocus(false)
   e:SetMaxLetters(60)
   e:SetScript("OnEscapePressed", function() this:ClearFocus() end)
   e:SetScript("OnEnterPressed", function() this:ClearFocus() end)
-  return e
+  return W.Face(e)
 end
 
 -- A text box of many lines inside a frame that scrolls with the mouse wheel and follows
@@ -221,6 +313,7 @@ function W.MultiEdit(parent, name, width, height, maxLetters)
   e:SetMultiLine(true)
   e:SetAutoFocus(false)
   e:SetFontObject(GameFontHighlightSmall)
+  W.Face(e)
   e:SetMaxLetters(maxLetters or 2000)
   e:SetScript("OnEscapePressed", function() this:ClearFocus() end)
   sf:SetScrollChild(e)
@@ -250,4 +343,70 @@ function W.MultiEdit(parent, name, width, height, maxLetters)
   sf:EnableMouse(true)
   sf:SetScript("OnMouseDown", function() e:SetFocus() end)
   return box
+end
+
+-- Edit, tick and cross at a box's top-right. Until Edit is pressed the box can be clicked,
+-- selected and copied (Ctrl+C), but every change is undone at once. The tick keeps the
+-- changes, the cross puts back the text from before Edit. src() gives the table that holds
+-- the text under key; done() runs after the tick or the cross. Returns the frame to place.
+function W.Lock(e, parent, src, key, done)
+  e.locked = true
+  local function Model()
+    local t = src()
+    return t and t[key] or ""
+  end
+  local onText = e:GetScript("OnTextChanged")
+  e:SetScript("OnTextChanged", function()
+    if e.locked then
+      local m = Model()
+      if this:GetText() ~= m then this:SetText(m); return end
+    end
+    if onText then onText() end
+  end)
+
+  local g = CreateFrame("Frame", nil, parent)
+  g:SetWidth(34)
+  g:SetHeight(16)
+  g:SetFrameLevel((e:GetFrameLevel() or 1) + 3)
+  local edit = W.Button(g, AB.T("Edit"), 34, 16)
+  edit:SetPoint("RIGHT", g, "RIGHT", 0, 0)
+  local no = W.IconButton(g, "Interface\\Buttons\\UI-Panel-MinimizeButton-Up", 16)
+  no.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
+  no:SetPoint("RIGHT", g, "RIGHT", 0, 0)
+  local ok = W.IconButton(g, "Interface\\Buttons\\UI-CheckBox-Check", 16)
+  ok.tex:SetVertexColor(0.35, 1, 0.35)
+  ok:SetPoint("RIGHT", no, "LEFT", -2, 0)
+  for _, b in ipairs({ edit, ok, no }) do b:SetFrameLevel(g:GetFrameLevel() + 1) end
+
+  local function Show()
+    if e.locked then edit:Show(); ok:Hide(); no:Hide() else edit:Hide(); ok:Show(); no:Show() end
+  end
+  edit:SetScript("OnClick", function()
+    e.locked = false
+    e.target, e.orig = src(), Model()
+    Show()
+    e:SetFocus()
+  end)
+  ok:SetScript("OnClick", function()
+    e.locked = true
+    e:ClearFocus()
+    Show()
+    if done then done() end
+  end)
+  no:SetScript("OnClick", function()
+    if e.target then e.target[key] = e.orig end
+    e.locked = true
+    e:ClearFocus()
+    Show()
+    e:SetText(Model())
+    if done then done() end
+  end)
+  W.Tip(edit, function(self, tt)
+    tt:SetText(AB.T("Edit"), 1, 0.82, 0)
+    tt:AddLine(AB.T("Unlocks the box. Until then you can select and copy the text, but not change it."), 0.8, 0.8, 0.8, 1)
+  end)
+  W.Tip(ok, function(self, tt) tt:SetText(AB.T("Done: keep the changes")) end)
+  W.Tip(no, function(self, tt) tt:SetText(AB.T("Cancel: put the old text back")) end)
+  Show()
+  return g
 end

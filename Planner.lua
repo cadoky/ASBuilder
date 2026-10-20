@@ -9,7 +9,7 @@ local T = AB.T
 local P = { selected = nil, offset = 0, variant = 1 }
 AB.Planner = P
 
-local FW, FH = 990, 600
+local FW, FH = 1040, 600
 local VY = 32   -- the stage bar sits above the editor and the priority list
 local LIST_ROWS = 18
 local PRIO_ROWS = 9
@@ -684,10 +684,9 @@ local function Priority(f)
   local ll = W.Text(ed, "GameFontNormalSmall")
   ll:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -498 - VY)
   L(ll, "Image link")
-  P.link = W.Edit(ed, "ASBuilderLink", 228, 20)
+  P.link = W.Edit(ed, "ASBuilderLink", 228, 20, GameFontHighlightSmall)
   P.link:SetPoint("TOPLEFT", f, "TOPLEFT", 580, -493 - VY)
   P.link:SetMaxLetters(255)
-  P.link:SetFontObject(GameFontHighlightSmall)
   P.link:SetScript("OnTextChanged", function()
     if P.filling then return end
     local d = Draft()
@@ -700,6 +699,14 @@ local function Priority(f)
     tt:AddLine(T("Paste a picture link (imgur, prnt.sc, Discord) to share your talents with the build."), 0.8, 0.8, 0.8, 1)
     tt:AddLine(T("To open it: click the box, press Ctrl+C and paste it into your browser. WoW addons cannot open a browser themselves."), 0.6, 0.6, 0.6, 1)
   end)
+
+  -- notes and link only change after Edit is pressed (copying always works)
+  local nlock = W.Lock(P.notes.edit, ed, function() local b = Selected(); return b and b.variant end, "notes",
+    function() P.RefreshDirty() end)
+  nlock:SetPoint("BOTTOMRIGHT", P.notes, "TOPRIGHT", 0, 1)
+  local llock = W.Lock(P.link, ed, Draft, "link", function() P.RefreshDirty() end)
+  llock:SetPoint("RIGHT", P.link, "RIGHT", -2, 0)
+  P.link:SetTextInsets(6, 40, 0, 0)
 end
 
 local function RefreshPriority(b)
@@ -1029,6 +1036,10 @@ local function Stats(f)
   local hl = W.Text(ed, "GameFontNormalSmall")
   hl:SetPoint("TOPLEFT", f, "TOPLEFT", 822, -44 - VY)
   L(hl, "Recommended stats")
+  local hn = W.Text(ed, "GameFontNormalSmall", "RIGHT")
+  hn:SetPoint("TOPLEFT", f, "TOPLEFT", 974, -44 - VY)
+  hn:SetWidth(52)
+  L(hn, "Now")
   P.stats = {}
   local n = table.getn(AB.STAT_KEYS)
   for i = 1, n do
@@ -1057,11 +1068,38 @@ local function Stats(f)
     local u = W.Text(ed, "GameFontDisableSmall")
     u:SetPoint("LEFT", e, "RIGHT", 3, 0)
     u:SetText(AB.STAT_UNIT[key])
+    e.now = W.Text(ed, "GameFontHighlightSmall", "RIGHT")
+    e.now:SetPoint("TOPLEFT", f, "TOPLEFT", 974, y - 4)
+    e.now:SetWidth(52)
     P.stats[i] = e
   end
   P.statsHint = W.Text(ed, "GameFontDisableSmall", "LEFT")
   P.statsHint:SetPoint("TOPLEFT", f, "TOPLEFT", 822, -64 - VY - n * 24 - 4)
   P.statsHint:SetWidth(156)
+  -- the game sends new numbers while you play: keep the Now column fresh
+  local tick = CreateFrame("Frame", nil, ed)
+  tick.t = 0
+  tick:SetScript("OnUpdate", function()
+    tick.t = tick.t + (arg1 or 0)
+    if tick.t > 1 then tick.t = 0; P.RefreshNow() end
+  end)
+end
+
+-- the Now column: green once a recommended value is reached, orange below it
+function P.RefreshNow()
+  local b = Selected()
+  if not b or not P.stats then return end
+  local s = AB.NowStats()
+  for i = 1, table.getn(P.stats) do
+    local e = P.stats[i]
+    local v = AB.NowStat(s, e.key)
+    local t = b.variant.stats and b.variant.stats[e.key]
+    e.now:SetText(v and AB.Num(v) or "-")
+    if not v then e.now:SetTextColor(0.5, 0.5, 0.5)
+    elseif not t then e.now:SetTextColor(0.9, 0.9, 0.9)
+    elseif v >= t then e.now:SetTextColor(0.35, 1, 0.35)
+    else e.now:SetTextColor(1, 0.6, 0.2) end
+  end
 end
 
 -- ---------------------------------------------------------------- the code dialog
@@ -1150,6 +1188,68 @@ function P.ShowCode(mode, text)
   end
 end
 
+-- ---------------------------------------------------------------- the reading face
+-- a button in the title band; its list shows every face's name in that face
+function P.FontMenu(f, close)
+  local fb = W.Button(f, "", 120, 18)
+  fb:SetPoint("RIGHT", close, "LEFT", -6, 0)
+  local fm = CreateFrame("Frame", nil, f)
+  fm:SetFrameStrata("DIALOG")
+  fm:SetWidth(120)
+  fm:SetHeight(table.getn(W.FACES) * 18 + 6)
+  fm:SetPoint("TOPRIGHT", fb, "BOTTOMRIGHT", 0, -2)
+  W.Panel(fm, 0.97, 0.35)
+  fm:EnableMouse(true)
+  fm:Hide()
+  fm.rows = {}
+  local function Label() fb:SetLabel(T("Font: %s", W.FaceInfo(W.FaceKey()).label)) end
+  for i = 1, table.getn(W.FACES) do
+    local fc = W.FACES[i]
+    local r = CreateFrame("Button", nil, fm)
+    r:SetWidth(114)
+    r:SetHeight(18)
+    r:SetPoint("TOPLEFT", fm, "TOPLEFT", 3, -3 - (i - 1) * 18)
+    W.Hover(r, 0.1)
+    r.key = fc.key
+    -- not W.Text: the name stays in its own face, whatever is picked
+    r.text = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    r.text:SetPoint("LEFT", r, "LEFT", 6, 0)
+    if fc.file then r.text:SetFont(fc.file, 12) end
+    r.text:SetText(fc.label)
+    r:SetScript("OnClick", function()
+      fm:Hide()
+      ASBuilderDB.font = this.key
+      W.ApplyFaces()
+      if W.FaceKey() ~= this.key then
+        ASBuilderDB.font = "classic"
+        W.ApplyFaces()
+        AB.Print(T("%s could not be loaded. New font files need a full game restart (not /reload).", fc.label))
+      end
+      Label()
+      P.Refresh()
+      if AB.RefreshTracker then AB.RefreshTracker() end
+    end)
+    W.Tip(r, function(self, tt)
+      tt:SetText(fc.label, 1, 0.82, 0)
+      tt:AddLine(T(fc.tip), 0.8, 0.8, 0.8, 1)
+    end)
+    fm.rows[i] = r
+  end
+  fm:SetScript("OnShow", function()
+    local cur = W.FaceKey()
+    for i = 1, table.getn(fm.rows) do
+      local r = fm.rows[i]
+      if r.key == cur then r.text:SetTextColor(0.35, 1, 0.35) else r.text:SetTextColor(1, 1, 1) end
+    end
+  end)
+  fb:SetScript("OnClick", function() if fm:IsVisible() then fm:Hide() else fm:Show() end end)
+  W.Tip(fb, function(self, tt)
+    tt:SetText(T("Font"), 1, 0.82, 0)
+    tt:AddLine(T("A typeface for the planner and the tracker that may be easier to read."), 0.8, 0.8, 0.8, 1)
+  end)
+  Label()
+end
+
 -- ---------------------------------------------------------------- the window
 local function Create()
   local f = CreateFrame("Frame", "ASBuilderPlanner", UIParent)
@@ -1186,6 +1286,7 @@ local function Create()
   close.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -5)
   close:SetScript("OnClick", function() f:Hide() end)
+  P.FontMenu(f, close)
 
   -- thin dividers between the three columns
   for _, x in ipairs({ 194, 506, 814 }) do
@@ -1265,7 +1366,9 @@ function P.Refresh()
   P.filling = false
   P.RefreshStages(d)
   P.notesLabel:SetText(T("Notes") .. "  |cff888888(" .. b.variant.name .. ")|r")
-  P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", b.variant.name))
+  P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", b.variant.name)
+    .. (AB.NowStats() and "" or ("\n" .. T("Now: open your character window (C) in a run once."))))
+  P.RefreshNow()
   for i = 1, table.getn(P.classBtns) do
     local cb = P.classBtns[i]
     local on = cb.classKey == b.class

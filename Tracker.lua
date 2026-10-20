@@ -161,6 +161,49 @@ local function Create()
   f:SetMovable(true)
   if f.SetClampedToScreen then f:SetClampedToScreen(true) end
 
+  -- a grip in the bottom-right corner: drag it to make the whole tracker bigger or smaller
+  -- (the same size as /asb scale); the top-left corner stays where it is
+  local grip = CreateFrame("Button", nil, f)
+  grip:SetWidth(12)
+  grip:SetHeight(12)
+  grip:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -1, 1)
+  grip:SetFrameLevel(f:GetFrameLevel() + 10)
+  for i = 1, 3 do
+    for j = 1, i do
+      local d = grip:CreateTexture(nil, "OVERLAY")
+      d:SetTexture(W.FLAT)
+      d:SetVertexColor(1, 1, 1, 0.45)
+      d:SetWidth(2)
+      d:SetHeight(2)
+      d:SetPoint("BOTTOMRIGHT", grip, "BOTTOMRIGHT", -(i - j) * 4, (j - 1) * 4)
+    end
+  end
+  W.Hover(grip, 0.15)
+  W.Tip(grip, function(self, tt)
+    tt:SetText(T("Drag to resize"), 1, 0.82, 0)
+    tt:AddLine(T("/asb reset: normal size and place"), 0.6, 0.6, 0.6, 1)
+  end)
+  grip:SetScript("OnMouseDown", function()
+    if ASBuilderDB.tracker.locked then return end
+    local eff = f:GetEffectiveScale()
+    grip.left, grip.top = f:GetLeft() * eff, f:GetTop() * eff
+    grip:SetScript("OnUpdate", function()
+      local ui = UIParent:GetEffectiveScale()
+      local x = GetCursorPosition()
+      local s = (x - grip.left) / (WIDTH * ui)
+      if s < 0.5 then s = 0.5 elseif s > 2 then s = 2 end
+      f:SetScale(s)
+      f:ClearAllPoints()
+      f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", grip.left / (s * ui), grip.top / (s * ui))
+    end)
+  end)
+  grip:SetScript("OnMouseUp", function()
+    if not grip:GetScript("OnUpdate") then return end
+    grip:SetScript("OnUpdate", nil)
+    ASBuilderDB.tracker.scale = f:GetScale()
+    SavePoint()
+  end)
+
   -- BUILD panel: header, the next steps, the spells to banish
   local pb = Panel(nil)
   pb:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)

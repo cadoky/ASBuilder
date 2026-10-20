@@ -154,6 +154,24 @@ AB.STAT_LABEL = { dmg = "Damage", cd = "Cooldowns", crit = "Crit Chance", critdm
 AB.STAT_UNIT = { dmg = "%", cd = "%", crit = "%", critdmg = "%", area = "%", speed = "%", armor = "%",
   lifesteal = "%", pickup = "yd", luck = "%", gold = "%" }
 
+-- what the hero has now, the way the character pane shows it: AZS_STATS field, base, factor.
+-- The game sends AZS_STATS only now and then, so the last numbers are kept.
+local NOW_STAT = { dmg = { "dmg", 1, 100 }, cd = { "cd", 1, -100 }, crit = { "crit", 0, 100 },
+  critdmg = { "cm", 0, 100 }, area = { "area", 1, 100 }, speed = { "spd", 1, 100 }, armor = { "arm", 0, 100 },
+  lifesteal = { "lch", 0, 100 }, pickup = { "pick", 0, 1 }, luck = { "luck", 0, 100 }, gold = { "gold", 1, 100 } }
+
+function AB.NowStats()
+  if type(AZS_STATS) == "table" and next(AZS_STATS) then ASBuilderDB.now = AZS_STATS end
+  return ASBuilderDB.now
+end
+
+function AB.NowStat(s, key)
+  local m = NOW_STAT[key]
+  local v = m and s and tonumber(s[m[1]])
+  if not v then return nil end
+  return math.floor((v - m[2]) * m[3] * 10 + 0.5) / 10
+end
+
 -- what a piece of jewelry gave the last time it was worn (its tooltip's green lines)
 function AB.SeenLines(name)
   local seen = type(ASBuilderDB) == "table" and ASBuilderDB.seen
