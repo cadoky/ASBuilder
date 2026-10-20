@@ -1248,6 +1248,32 @@ function P.FontMenu(f, close)
     tt:AddLine(T("A typeface for the planner and the tracker that may be easier to read."), 0.8, 0.8, 0.8, 1)
   end)
   Label()
+  return fb
+end
+
+-- ---------------------------------------------------------------- brightness on the card screen
+-- one button: each click steps Off, 60% ... 100%
+local LIGHT_STEPS = { 0, 60, 70, 80, 90, 100 }
+function P.LightButton(f, anchor)
+  local b = W.Button(f, "", 150, 18)
+  b:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
+  local function Label()
+    local v = ASBuilderDB.light
+    b:SetLabel(v > 0 and T("Card light: %d%%", v) or T("Card light: Off"))
+  end
+  b:SetScript("OnClick", function()
+    local v, nxt = ASBuilderDB.light, LIGHT_STEPS[1]
+    for i = 1, table.getn(LIGHT_STEPS) do
+      if LIGHT_STEPS[i] > v then nxt = LIGHT_STEPS[i]; break end
+    end
+    ASBuilderDB.light = nxt
+    Label()
+  end)
+  W.Tip(b, function(self, tt)
+    tt:SetText(T("Increase brightness on selection"), 1, 0.82, 0)
+    tt:AddLine(T("While the level-up, lair or cache cards are shown, the game's brightness goes up to this value, then back to your own setting. Click to change."), 0.8, 0.8, 0.8, 1)
+  end)
+  Label()
 end
 
 -- ---------------------------------------------------------------- the window
@@ -1286,7 +1312,7 @@ local function Create()
   close.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -5)
   close:SetScript("OnClick", function() f:Hide() end)
-  P.FontMenu(f, close)
+  P.LightButton(f, P.FontMenu(f, close))
 
   -- thin dividers between the three columns
   for _, x in ipairs({ 194, 506, 814 }) do

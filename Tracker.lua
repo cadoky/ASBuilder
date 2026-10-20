@@ -841,8 +841,131 @@ function TR.TogglePicker()
   menu:Show()
 end
 
+-- ---------------------------------------------------------------- choice boxes
+-- While the game offers cards (level-up, lair, cache) two big boxes show the build's spells
+-- and jewelry above the screen's dark veil: the ones still to take glow, the rest are dimmed.
+local CHOICE_ICON, CHOICE_GAP, CHOICE_N = 88, 10, 9
+-- the width of six icons: more icons than that get smaller instead of making the box wider
+local CHOICE_W = 6 * (CHOICE_ICON + CHOICE_GAP) - CHOICE_GAP
+local choice
+
+local function ChoiceBox(title, point, x)
+  local p = CreateFrame("Frame", nil, choice)
+  p:SetFrameStrata("TOOLTIP")
+  -- above other TOOLTIP frames too (the damage meter's minimap button sits there); set before
+  -- the cells are made, so they start above it
+  p:SetFrameLevel(100)
+  W.Panel(p, 0.88, 0.35)
+  -- the game's veil darkens every addon frame, so everything here is drawn as bright as it goes
+  p:SetBackdropBorderColor(1, 0.85, 0.3, 1)
+  p:SetPoint(point, UIParent, point, x, -40)
+  p.title = W.Text(p, "GameFontNormalLarge")
+  p.title:SetPoint("TOPLEFT", p, "TOPLEFT", 12, -8)
+  p.title:SetTextColor(1, 1, 0.6)
+  p.title:SetText(title)
+  p.cells = {}
+  for i = 1, CHOICE_N do
+    local c = CreateFrame("Frame", nil, p)
+    c.icon = c:CreateTexture(nil, "ARTWORK")
+    c.icon:SetAllPoints(c)
+    -- the same icon added on top makes it brighter than the game draws it
+    c.shine = c:CreateTexture(nil, "OVERLAY")
+    c.shine:SetAllPoints(c)
+    c.shine:SetBlendMode("ADD")
+    c.shine:SetAlpha(0.4)
+    c.glow = c:CreateTexture(nil, "OVERLAY")
+    c.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    c.glow:SetBlendMode("ADD")
+    c.glow:SetPoint("CENTER", c, "CENTER", 0, 0)
+    -- the name under the icon: a plain face with a dark outline reads best on the dimmed screen
+    c.name = c:CreateFontString(nil, "OVERLAY")
+    c.name:SetFont(W.FaceInfo("noto").file, 13, "OUTLINE")
+    if not c.name:GetFont() then c.name:SetFont(GameFontNormal:GetFont(), 13, "OUTLINE") end
+    c.name:SetPoint("TOP", c, "BOTTOM", 0, -4)
+    c.name:SetHeight(32)
+    c.name:SetJustifyV("TOP")
+    p.cells[i] = c
+  end
+  return p
+end
+
+-- What is still to take: spells and jewelry not taken yet; taken ones leave the box.
+-- Alternatives stay out, except the amulet's, which get a turquoise frame.
+local function Wanted(r, isSpell)
+  if (r.pick.t == "spell") ~= isSpell or r.owned or r.blocked or r.hide then return false end
+  local amuletAlt = r.pick.alt and AB.GROUP[r.pick.t] == "amulet"
+  if (r.pick.alt or r.extra) and not amuletAlt then return false end
+  return true, amuletAlt
+end
+
+-- glow colours: spell to take, spell to banish, jewelry, amulet alternative
+local GLOW = { spell = { 0.3, 1, 0.3 }, ban = { 1, 0.15, 0.15 }, jewel = { 1, 0.85, 0.2 }, alt = { 0.2, 1, 0.95 } }
+
+local function FillChoice(p, ev, isSpell)
+  local list = {}
+  for i = 1, table.getn(ev.rows) do
+    local ok, alt = Wanted(ev.rows[i], isSpell)
+    if ok then
+      table.insert(list, { info = ev.rows[i].info, pick = ev.rows[i].pick, glow = alt and GLOW.alt or (isSpell and GLOW.spell or GLOW.jewel) })
+    end
+  end
+  -- the spells to banish stay until every spell of the build is taken
+  if isSpell and table.getn(list) > 0 then
+    local banished = ASBuilderDB.run.banished or {}
+    for i = 1, table.getn(ev.bans) do
+      local d = ev.bans[i]
+      if not d.known and not banished[d.pick.k] then table.insert(list, { info = d.info, pick = d.pick, glow = GLOW.ban }) end
+    end
+  end
+  while table.getn(list) > CHOICE_N do table.remove(list) end
+  local n = table.getn(list)
+  local size = math.min(CHOICE_ICON, math.floor((CHOICE_W + CHOICE_GAP) / math.max(n, 1)) - CHOICE_GAP)
+  for i = 1, n do
+    local c, e = p.cells[i], list[i]
+    c:SetWidth(size)
+    c:SetHeight(size)
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", p, "TOPLEFT", 12 + (i - 1) * (size + CHOICE_GAP), -36)
+    local tex = AB.Icon(e.info and e.info.icon)
+    c.icon:SetTexture(tex)
+    c.shine:SetTexture(tex)
+    c.glow:SetWidth(size * 1.9)
+    c.glow:SetHeight(size * 1.9)
+    c.glow:SetVertexColor(e.glow[1], e.glow[2], e.glow[3])
+    c.name:SetWidth(size + CHOICE_GAP)
+    c.name:SetText(e.info and e.info.name or e.pick.k)
+    -- only amulets have a fixed rarity; spells, rings and trinkets get theirs on the card
+    local rarity = e.pick.t == "legend" and "Legendary" or (e.info and e.info.rarity)
+    c.name:SetTextColor(RarityRGB(rarity))
+    c:Show()
+  end
+  for i = n + 1, CHOICE_N do p.cells[i]:Hide() end
+  p:SetWidth(math.max(24 + n * (size + CHOICE_GAP) - CHOICE_GAP, 200))
+  p:SetHeight(size + 86)
+  if n > 0 then p:Show() else p:Hide() end
+end
+
+local function ShowChoice(ev)
+  if not choice then
+    choice = CreateFrame("Frame", nil, UIParent)
+    choice.spells = ChoiceBox(T("Build spells"), "TOPLEFT", 40)
+    choice.jewel = ChoiceBox(T("Build jewelry"), "TOPRIGHT", -40)
+    -- the glow breathes so the eye finds it
+    choice:SetScript("OnUpdate", function()
+      local a = 0.6 + 0.25 * math.sin(GetTime() * 4)
+      for _, p in ipairs({ choice.spells, choice.jewel }) do
+        for i = 1, CHOICE_N do p.cells[i].glow:SetAlpha(a) end
+      end
+    end)
+  end
+  FillChoice(choice.spells, ev, true)
+  FillChoice(choice.jewel, ev, false)
+  choice:Show()
+end
+
 function TR.Refresh()
   if not AB.ready then return end
+  if choice then choice:Hide() end
   if not f then Create() end
   local db = ASBuilderDB.tracker
   if db.mode == "hidden" then f:Hide(); return end
@@ -881,6 +1004,7 @@ function TR.Refresh()
   end
   f:SetHeight(y)
   f:Show()
+  if b and live.phase == "choosing" then ShowChoice(ev) end
 end
 
 AB.RefreshTracker = TR.Refresh
