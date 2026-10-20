@@ -178,6 +178,22 @@ function AB.SeenLines(name)
   return seen and name and seen[name] or nil
 end
 
+-- how many spells a legendary amulet remakes; one that remakes a single spell can trust its worn lines
+local legendUses
+local function LegendUses(name)
+  if not legendUses then
+    legendUses = {}
+    local cl = D.classes or {}
+    for i = 1, table.getn(cl) do
+      for j = 1, table.getn(cl[i].spells) do
+        local a = cl[i].spells[j].amulet
+        if a then legendUses[a] = (legendUses[a] or 0) + 1 end
+      end
+    end
+  end
+  return legendUses[name] or 0
+end
+
 -- Fills GameTooltip (already owned) with what a pick does.
 function AB.FillTooltip(tt, cls, p)
   local info = AB.Info(cls, p)
@@ -218,7 +234,9 @@ function AB.FillTooltip(tt, cls, p)
     tt:SetText(info.name, 1, 0.5, 0)
     tt:AddLine((string.gsub(D.remakes or "Legendary amulet · remakes {spell}", "{spell}", d.name)), gray, gray, gray)
     local fx = AB.LegendStats(cls, d.key)
-    if fx then
+    if LegendUses(info.name) == 1 and Seen() then
+      tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
+    elseif fx then
       for i = 1, table.getn(fx) do tt:AddLine(fx[i], 0.12, 1, 0, 1) end
       tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
     elseif not Seen() then

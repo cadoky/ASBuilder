@@ -623,4 +623,5 @@ ASBuilder_AmuletIcons = {
   ["Breath of the Black Dragon"] = "INV_Jewelry_Necklace_19",
   ["The Eternal Talisman"] = "INV_Jewelry_Necklace_21",
   ["Amulet of the Ancients"] = "INV_Jewelry_Necklace_23",
+  ["The Legionlord's Medallion"] = "INV_Jewelry_Necklace_13",
 }

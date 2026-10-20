@@ -21,6 +21,7 @@ import time
 
 KEY_RE = re.compile(r'^[a-z0-9_]+$')
 ICON_RE = re.compile(r'^(INV|Spell|Ability|Racial|Achievement|Trade|Temp)_[A-Za-z0-9_]+$')
+LEG_ICON_RE = re.compile(r'INV_Jewelry_Necklace_(?:[A-Za-z]+_\d+|\d+(?:Naxxramas)?)')
 RARITY = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "PvP"]
 
 
@@ -160,6 +161,15 @@ def translations(exe):
         blocks.append((lang, j))
     if not blocks:
         raise SystemExit('no translation tables found')
+    if 'en' not in dict(blocks):
+        # since 0.105.0 the English table has no jewel.* keys: find it by its own text
+        m = d.find(b'"common.male": "Male"')
+        if m >= 0:
+            a, e = d.rfind(b'{\r\n', 0, m), d.find(b'\r\n}', m)
+            try:
+                blocks.insert(0, ('en', json.loads(d[a:e + 3].decode('utf8'))))
+            except ValueError:
+                pass
     return blocks
 
 
@@ -206,9 +216,10 @@ def extract(path):
     if not hits:
         raise SystemExit('could not find the legendary amulets')
     a = min(hits)
-    b = a
-    while b < len(d) and 32 <= d[b] < 127:
-        b += 1
+    # since 0.105.0 a "legendary:" marker sits inside the list: read up to the amulet table's tag
+    b = d.find(b'amulet.', a)
+    if b < 0:
+        b = a + 4096
     region = d[a:b].decode('latin1')
     byfirst = {}
     for k in names:
@@ -224,14 +235,13 @@ def extract(path):
     while pos < len(region):
         k = name_at(pos)
         if not k:
-            break
+            pos += 1
+            continue
         pos += len(k)
-        j = pos
-        while j < len(region) and (region[j].isalnum() or region[j] == '_') and not (j > pos and name_at(j)):
-            j += 1
-        icon = region[pos:j] if ICON_RE.match(region[pos:j] or '-') else None
-        legend.append(dict(name=k, icon=icon))
-        pos = j
+        m = LEG_ICON_RE.match(region, pos)
+        legend.append(dict(name=k, icon=m.group() if m else None))
+        if m:
+            pos = m.end()
 
     # spells: key, name, icon, effects, numbers; spell id at +64, legendary kind at +117 (120 bytes)
     abkeys = [k[8:-5] for k in ekeys if k.startswith('ability.') and k.endswith('.name')]
@@ -239,12 +249,20 @@ def extract(path):
         k, n, i = exe.s(o), exe.s(o + 16), exe.s(o + 32)
         return bool(k and KEY_RE.match(k) and n and i and ICON_RE.match(i) and exe.u8slice(o + 48, 16) is not None)
     brows = walk_table(exe, abkeys[0], 120, bvalid)
+    # shortcut: the game names Demonic Empowerment's amulet in code, outside the kind list; recheck on updates
+    LEGION = "The Legionlord's Medallion"
+    legion = [x for x in legend if x['name'] == LEGION]
+    legend = [x for x in legend if x['name'] != LEGION]
     spells = {}
     for o in brows:
         kind = d[o + 117]
         spells[exe.s(o)] = dict(key=exe.s(o), name=exe.s(o + 16), icon=exe.s(o + 32),
                                 id=struct.unpack_from('<I', d, o + 64)[0],
                                 amulet=legend[kind]['name'] if kind < len(legend) else None, kind=kind)
+    legend = legend[:max(sp['kind'] for sp in spells.values()) + 1]
+    if legion and 'demonic_empowerment' in spells:
+        spells['demonic_empowerment']['amulet'] = LEGION
+        legend += legion
 
     # classes: key, name, spells, starting spell, colour, icon, blurb (144 bytes)
     ckeys = [k[6:-5] for k in ekeys if k.startswith('class.') and k.endswith('.name')]
