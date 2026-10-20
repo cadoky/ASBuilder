@@ -9,7 +9,7 @@ local T = AB.T
 local P = { selected = nil, offset = 0, variant = 1 }
 AB.Planner = P
 
-local FW, FH = 820, 600
+local FW, FH = 990, 600
 local VY = 32   -- the stage bar sits above the editor and the priority list
 local LIST_ROWS = 18
 local PRIO_ROWS = 9
@@ -297,7 +297,7 @@ local function Editor(f)
     local t = this:GetText() or ""
     if t == "" then return end
     d.name = t
-    P.RefreshList()
+    P.RefreshDirty()
     if AB.RefreshTracker then AB.RefreshTracker() end
   end)
   ne:SetScript("OnEditFocusLost", function()
@@ -447,6 +447,45 @@ local TABS = {
 }
 P.tab = "spell"
 
+-- a jewelry row's typed target: field "r" (its first stat) or "r2" (an amulet's second stat)
+local function ValueBox(r, name, field)
+  local e = W.Edit(r, name, 40, 18)
+  e:SetMaxLetters(5)
+  e:SetTextInsets(4, 4, 0, 0)
+  if e.SetJustifyH then e:SetJustifyH("RIGHT") end
+  e.hint = W.Text(e, "GameFontDisableSmall", "CENTER")
+  e.hint:SetAllPoints(e)
+  e.hint:SetText((field == "r2") and "-" or T("max"))
+  e:SetScript("OnTextChanged", function()
+    local t = this:GetText() or ""
+    if t == "" then this.hint:Show() else this.hint:Hide() end
+    if P.filling then return end
+    local b = Selected()
+    local p = b and r.pi and b.picks[r.pi]
+    if not p then return end
+    local n = tonumber((string.gsub(t, ",", ".")))
+    p[field] = (n and n > 0) and n or 0
+    P.RefreshDirty()
+  end)
+  e:SetScript("OnEditFocusGained", function() this.focus = true; this:HighlightText() end)
+  e:SetScript("OnEditFocusLost", function() this.focus = false; P.Refresh() end)
+  W.Tip(e, function(self, tt)
+    local b = Selected()
+    local p = b and r.pi and b.picks[r.pi]
+    local info = p and AB.Info(b.class, p)
+    local stat = info and p.t ~= "legend" and ((field == "r2") and AB.StatTemplate2(info) or AB.StatTemplate(info))
+    tt:SetText(T("Target value"), 1, 0.82, 0)
+    if stat then tt:AddLine((string.gsub(stat, "{v}", "x")), 0.5, 1, 0.5) end
+    tt:AddLine(T("What this piece should give before the build moves on, read live from its tooltip: 30 for -30% cooldowns, 4.5 for +4.5 health per second."), 0.8, 0.8, 0.8, 1)
+    if field == "r2" then
+      tt:AddLine(T("Empty: no target for this stat."), 0.6, 0.6, 0.6, 1)
+    else
+      tt:AddLine(T("Empty: keep upgrading it whenever it is offered."), 0.6, 0.6, 0.6, 1)
+    end
+  end)
+  return e
+end
+
 local function Priority(f)
   local ed = P.ed
   P.tabs = {}
@@ -581,34 +620,14 @@ local function Priority(f)
     r.plus:SetScript("OnClick", function() Target(1) end)
 
     -- jewelry: the value the piece should give (typed), instead of a rank
-    r.val = W.Edit(r, "ASBuilderTarget" .. i, 40, 18)
+    r.val = ValueBox(r, "ASBuilderTarget" .. i, "r")
     r.val:SetPoint("LEFT", r, "LEFT", 180, 0)
-    r.val:SetMaxLetters(5)
-    r.val:SetTextInsets(4, 4, 0, 0)
-    if r.val.SetJustifyH then r.val:SetJustifyH("RIGHT") end
-    r.val.hint = W.Text(r.val, "GameFontDisableSmall", "CENTER")
-    r.val.hint:SetAllPoints(r.val)
-    r.val.hint:SetText(T("max"))
-    r.val:SetScript("OnTextChanged", function()
-      local t = this:GetText() or ""
-      if t == "" then this.hint:Show() else this.hint:Hide() end
-      if P.filling then return end
-      local b = Selected()
-      local p = b and r.pi and b.picks[r.pi]
-      if not p then return end
-      local n = tonumber((string.gsub(t, ",", ".")))
-      p.r = (n and n > 0) and n or 0
-      P.RefreshDirty()
-    end)
-    r.val:SetScript("OnEditFocusGained", function() this.focus = true; this:HighlightText() end)
-    r.val:SetScript("OnEditFocusLost", function() this.focus = false; P.Refresh() end)
-    W.Tip(r.val, function(self, tt)
-      tt:SetText(T("Target value"), 1, 0.82, 0)
-      tt:AddLine(T("What this piece should give before the build moves on, read live from its tooltip: 30 for -30% cooldowns, 4.5 for +4.5 health per second."), 0.8, 0.8, 0.8, 1)
-      tt:AddLine(T("Empty: keep upgrading it whenever it is offered."), 0.6, 0.6, 0.6, 1)
-    end)
     r.unit = W.Text(r, "GameFontHighlightSmall")
     r.unit:SetPoint("LEFT", r.val, "RIGHT", 3, 0)
+    -- an amulet with a second stat: a second box beside the first
+    r.val2 = ValueBox(r, "ASBuilderTargetB" .. i, "r2")
+    r.val2:SetPoint("LEFT", r, "LEFT", 210, 0)
+    r.val2:SetWidth(28)
 
     r.up = W.IconButton(r, "Interface\\Buttons\\UI-ScrollBar-ScrollUpButton-Up", 18)
     r.up.tex:SetTexCoord(0.2, 0.8, 0.2, 0.8)
@@ -651,13 +670,13 @@ local function Priority(f)
   local nl = W.Text(ed, "GameFontNormalSmall")
   nl:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -364 - VY)
   P.notesLabel = nl
-  P.notes = W.MultiEdit(ed, "ASBuilderNotes", 296, 110, 2000)
+  P.notes = W.MultiEdit(ed, "ASBuilderNotes", 296, 110, 4000)
   P.notes:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -378 - VY)
   P.notes.edit:SetScript("OnTextChanged", function()
     P.notes.scroll:UpdateScrollChildRect()
     if P.filling then return end
     local b = Selected()
-    if b then b.variant.notes = this:GetText() or "" end
+    if b then b.variant.notes = this:GetText() or ""; P.RefreshDirty() end
   end)
 
   -- a link to a picture of the build (talents and so on); addons cannot open a browser,
@@ -734,7 +753,7 @@ local function RefreshPriority(b)
         r.name:SetTextColor(1, 0.45, 0.45)
         r.banText:SetText(T("will banish"))
         r.banText:Show()
-        r.minus:Hide(); r.rank:Hide(); r.plus:Hide(); r.val:Hide(); r.unit:Hide()
+        r.minus:Hide(); r.rank:Hide(); r.plus:Hide(); r.val:Hide(); r.unit:Hide(); r.val2:Hide()
         r.bg:SetVertexColor(1, 0.2, 0.2, 0.07)
         -- banished spells keep their own order below the ones to take
         r.up:SetOn(i > takes + 1)
@@ -752,7 +771,7 @@ local function RefreshPriority(b)
         else r.name:SetTextColor(1, 1, 1) end
         r.banText:Hide()
         if p.t == "spell" then
-          r.val:Hide(); r.unit:Hide()
+          r.val:Hide(); r.unit:Hide(); r.val2:Hide()
           r.minus:Show(); r.rank:Show(); r.plus:Show()
           if (p.r or 0) == 0 then
             r.rank.text:SetText(T("max"))
@@ -765,14 +784,29 @@ local function RefreshPriority(b)
           r.plus:SetOn((p.r or 0) < MAX_TARGET)
         else
           r.minus:Hide(); r.rank:Hide(); r.plus:Hide()
-          r.val:Show(); r.unit:Show()
+          r.val:Show()
           if not r.val.focus then
             P.filling = true
             r.val:SetText(((p.r or 0) > 0) and AB.Num(p.r) or "")
             P.filling = false
           end
           local stat = info and p.t ~= "legend" and AB.StatTemplate(info)
-          r.unit:SetText((not stat or string.find(stat, "%%")) and "%" or "")
+          local stat2 = info and p.t ~= "legend" and AB.StatTemplate2(info)
+          if stat2 then
+            r.val:SetWidth(28)
+            r.unit:Hide()
+            r.val2:Show()
+            if not r.val2.focus then
+              P.filling = true
+              r.val2:SetText(((p.r2 or 0) > 0) and AB.Num(p.r2) or "")
+              P.filling = false
+            end
+          else
+            r.val:SetWidth(40)
+            r.val2:Hide()
+            r.unit:Show()
+            r.unit:SetText((not stat or string.find(stat, "%%")) and "%" or "")
+          end
         end
         if p.alt then r.bg:SetVertexColor(0.3, 0.55, 1, 0.07) else r.bg:SetVertexColor(1, 1, 1, 0.035) end
         local mains = takes - (canAlt and AB.CountAlts(b, group) or 0)
@@ -850,8 +884,7 @@ function P.StageBar(f)
     local t = this:GetText() or ""
     if not d or t == "" then return end
     d.variants[P.variant].name = t
-    P.RefreshStages(d)
-    P.RefreshList()
+    P.RefreshDirty()
   end)
   se:SetScript("OnEditFocusGained", function() P.stageFocus = true end)
   se:SetScript("OnEditFocusLost", function()
@@ -988,6 +1021,49 @@ local function BottomBar(f)
   end)
 end
 
+-- ---------------------------------------------------------------- recommended stats (right)
+-- what the character's stats should reach with this build (the game's Multipliers panel,
+-- plus luck and gold): typed by the build's author, read by whoever uses the build
+local function Stats(f)
+  local ed = P.ed
+  local hl = W.Text(ed, "GameFontNormalSmall")
+  hl:SetPoint("TOPLEFT", f, "TOPLEFT", 822, -44 - VY)
+  L(hl, "Recommended stats")
+  P.stats = {}
+  local n = table.getn(AB.STAT_KEYS)
+  for i = 1, n do
+    local key = AB.STAT_KEYS[i]
+    local y = -64 - VY - (i - 1) * 24
+    local lb = W.Text(ed, "GameFontHighlightSmall")
+    lb:SetPoint("TOPLEFT", f, "TOPLEFT", 824, y - 4)
+    L(lb, AB.STAT_LABEL[key])
+    local e = W.Edit(ed, "ASBuilderStat" .. i, 46, 18)
+    e:SetPoint("TOPLEFT", f, "TOPLEFT", 910, y)
+    e:SetMaxLetters(6)
+    e:SetTextInsets(4, 4, 0, 0)
+    if e.SetJustifyH then e:SetJustifyH("RIGHT") end
+    e.key = key
+    e:SetScript("OnTextChanged", function()
+      if P.filling then return end
+      local b = Selected()
+      if not b then return end
+      local v = tonumber((string.gsub(this:GetText() or "", ",", ".")))
+      if not b.variant.stats then b.variant.stats = {} end
+      b.variant.stats[this.key] = (v and v > 0) and v or nil
+      P.RefreshDirty()
+    end)
+    e:SetScript("OnEditFocusGained", function() this.focus = true; this:HighlightText() end)
+    e:SetScript("OnEditFocusLost", function() this.focus = false; P.Refresh() end)
+    local u = W.Text(ed, "GameFontDisableSmall")
+    u:SetPoint("LEFT", e, "RIGHT", 3, 0)
+    u:SetText(AB.STAT_UNIT[key])
+    P.stats[i] = e
+  end
+  P.statsHint = W.Text(ed, "GameFontDisableSmall", "LEFT")
+  P.statsHint:SetPoint("TOPLEFT", f, "TOPLEFT", 822, -64 - VY - n * 24 - 4)
+  P.statsHint:SetWidth(156)
+end
+
 -- ---------------------------------------------------------------- the code dialog
 local code
 local function CodeDialog()
@@ -1011,7 +1087,7 @@ local function CodeDialog()
   d.hint:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -28)
   d.hint:SetWidth(416)
 
-  d.box = W.MultiEdit(d, "ASBuilderCodeEdit", 416, 130, 8000)
+  d.box = W.MultiEdit(d, "ASBuilderCodeEdit", 416, 130, 24000)
   d.box:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -46)
   d.box.edit:SetScript("OnTextChanged", function()
     d.box.scroll:UpdateScrollChildRect()
@@ -1112,12 +1188,12 @@ local function Create()
   close:SetScript("OnClick", function() f:Hide() end)
 
   -- thin dividers between the three columns
-  for _, x in ipairs({ 194, 506 }) do
+  for _, x in ipairs({ 194, 506, 814 }) do
     local line = f:CreateTexture(nil, "BORDER")
     line:SetTexture(W.FLAT)
     line:SetVertexColor(1, 1, 1, 0.06)
     line:SetWidth(1)
-    line:SetPoint("TOPLEFT", f, "TOPLEFT", x, (x == 506) and (-40 - VY) or -40)
+    line:SetPoint("TOPLEFT", f, "TOPLEFT", x, (x ~= 194) and (-40 - VY) or -40)
     line:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, 44)
   end
 
@@ -1125,6 +1201,7 @@ local function Create()
   Editor(f)
   P.StageBar(f)
   Priority(f)
+  Stats(f)
   BottomBar(f)
 
   P.edEmpty = W.Text(f, "GameFontDisable", "CENTER")
@@ -1136,6 +1213,7 @@ local function Create()
     P.nameEdit:ClearFocus()
     P.notes.edit:ClearFocus()
     P.link:ClearFocus()
+    for i = 1, table.getn(P.stats) do P.stats[i]:ClearFocus() end
   end)
 end
 
@@ -1177,10 +1255,17 @@ function P.Refresh()
   end
   if P.notes.edit:GetText() ~= (b.variant.notes or "") then P.notes.edit:SetText(b.variant.notes or "") end
   if P.link:GetText() ~= (d.link or "") and not P.link.focus then P.link:SetText(d.link or "") end
+  for i = 1, table.getn(P.stats) do
+    local e = P.stats[i]
+    local v = b.variant.stats and b.variant.stats[e.key]
+    local t = v and AB.Num(v) or ""
+    if not e.focus and e:GetText() ~= t then e:SetText(t) end
+  end
   if P.stageEdit:GetText() ~= b.variant.name and not P.stageFocus then P.stageEdit:SetText(b.variant.name) end
   P.filling = false
   P.RefreshStages(d)
   P.notesLabel:SetText(T("Notes") .. "  |cff888888(" .. b.variant.name .. ")|r")
+  P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", b.variant.name))
   for i = 1, table.getn(P.classBtns) do
     local cb = P.classBtns[i]
     local on = cb.classKey == b.class

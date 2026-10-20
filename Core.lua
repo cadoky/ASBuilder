@@ -136,6 +136,24 @@ function AB.StatTemplate(info)
   return base and base[1] or nil
 end
 
+-- an amulet's second base stat, when it has a number: the pick can hold a second target for it
+function AB.StatTemplate2(info)
+  local d = info and info.data
+  if not d or d.stat or not d.key then return nil end
+  local base = AB.AmuletStats(d.key)
+  local s = base and base[2]
+  if s and string.find(s, "%d") then return s end
+  return nil
+end
+
+-- recommended stats a build can list (the game's Multipliers panel, plus luck and gold)
+AB.STAT_KEYS = { "dmg", "cd", "crit", "critdmg", "area", "speed", "armor", "lifesteal", "pickup", "luck", "gold" }
+AB.STAT_LABEL = { dmg = "Damage", cd = "Cooldowns", crit = "Crit Chance", critdmg = "Crit Damage",
+  area = "Area", speed = "Speed", armor = "Armor / DR", lifesteal = "Lifesteal", pickup = "Pickup",
+  luck = "Luck", gold = "Gold" }
+AB.STAT_UNIT = { dmg = "%", cd = "%", crit = "%", critdmg = "%", area = "%", speed = "%", armor = "%",
+  lifesteal = "%", pickup = "yd", luck = "%", gold = "%" }
+
 -- what a piece of jewelry gave the last time it was worn (its tooltip's green lines)
 function AB.SeenLines(name)
   local seen = type(ASBuilderDB) == "table" and ASBuilderDB.seen
@@ -216,16 +234,35 @@ local function CopyPicks(list)
   local out = {}
   for i = 1, table.getn(list or {}) do
     local p = list[i]
-    table.insert(out, { t = p.t, k = p.k, r = p.r, ban = p.ban, alt = p.alt })
+    table.insert(out, { t = p.t, k = p.k, r = p.r, r2 = p.r2, ban = p.ban, alt = p.alt })
   end
   return out
+end
+
+local function CopyStats(s)
+  local out = {}
+  if type(s) == "table" then
+    for k, v in pairs(s) do if type(v) == "number" then out[k] = v end end
+  end
+  return out
+end
+
+-- the recommended stats as text: "dmg=78,cd=84"
+local function StatsText(s)
+  local parts = {}
+  for i = 1, table.getn(AB.STAT_KEYS) do
+    local k = AB.STAT_KEYS[i]
+    local v = type(s) == "table" and s[k]
+    if v then table.insert(parts, k .. "=" .. AB.Num(v)) end
+  end
+  return table.concat(parts, ",")
 end
 
 local function CopyVariants(list)
   local out = {}
   for i = 1, table.getn(list or {}) do
     local v = list[i]
-    table.insert(out, { name = v.name, picks = CopyPicks(v.picks), notes = v.notes or "" })
+    table.insert(out, { name = v.name, picks = CopyPicks(v.picks), notes = v.notes or "", stats = CopyStats(v.stats) })
   end
   return out
 end
@@ -255,8 +292,12 @@ local function Upgrade(b)
     local v = b.variants[i]
     if type(v.picks) ~= "table" then v.picks = {} end
     if type(v.notes) ~= "string" then v.notes = "" end
+    if type(v.stats) ~= "table" then v.stats = {} end
     if type(v.name) ~= "string" or v.name == "" then v.name = AB.STAGE_NAMES[i] end
   end
+  -- recommended stats used to be one list per build: they belong to the first stage now
+  if type(b.stats) == "table" and next(b.stats) and not next(b.variants[1].stats) then b.variants[1].stats = b.stats end
+  b.stats = nil
   if type(b.link) ~= "string" then b.link = "" end
   if type(b.stash) ~= "table" then b.stash = {} end
   for cls, byStage in pairs(b.stash) do
@@ -408,7 +449,7 @@ local function PicksString(list)
   local parts = {}
   for i = 1, table.getn(list or {}) do
     local p = list[i]
-    table.insert(parts, p.t .. ":" .. p.k .. ":" .. (p.r or 0) .. (p.ban and ":b" or "") .. (p.alt and ":a" or ""))
+    table.insert(parts, p.t .. ":" .. p.k .. ":" .. (p.r or 0) .. ":" .. (p.r2 or 0) .. (p.ban and ":b" or "") .. (p.alt and ":a" or ""))
   end
   return table.concat(parts, ";")
 end
@@ -426,7 +467,7 @@ function AB.Serialize(b)
   local parts = { b.name or "", b.class or "", (b.fill == false) and "0" or "1", b.link or "" }
   for i = 1, table.getn(b.variants or {}) do
     local v = b.variants[i]
-    table.insert(parts, (v.name or "") .. "#" .. PicksString(v.picks) .. "#" .. (v.notes or ""))
+    table.insert(parts, (v.name or "") .. "#" .. PicksString(v.picks) .. "#" .. (v.notes or "") .. "#" .. StatsText(v.stats))
   end
   table.insert(parts, table.concat(stash, "|"))
   return table.concat(parts, "\n")
@@ -547,7 +588,7 @@ function AB.FixStage(b, vi)
       local i = AB.FindPick(view, p.t, p.k)
       local group = AB.GROUP[p.t]
       if i and view.picks[i].ban then table.remove(view.picks, i) end
-      local np = { t = p.t, k = p.k, r = p.r or 0 }
+      local np = { t = p.t, k = p.k, r = p.r or 0, r2 = p.r2 }
       if AB.Fit(view, np) then
         table.insert(view.picks, np)
       else
@@ -1031,11 +1072,38 @@ function AB.WornValue(w)
   return num and tonumber((string.gsub(num, ",", "."))) or nil
 end
 
+-- the value of a worn piece's second stat ("+25% gold" of "+30% luck, +25% gold"), or nil
+function AB.WornValue2(w)
+  local lines = w and w.lines
+  if not lines then return nil end
+  local n = 0
+  for i = 1, table.getn(lines) do
+    for part in string.gfind(lines[i] .. ", ", "(.-), ") do
+      local text = string.gsub(part, "^%s*[^:]*:%s*", "")
+      if not string.find(text, "%d") then text = part end
+      local _, _, num = string.find(text, "(%d+[%.,]?%d*)")
+      if num then
+        n = n + 1
+        if n == 2 then return tonumber((string.gsub(num, ",", "."))) end
+      end
+    end
+  end
+  return nil
+end
+
 -- a value target as text: 30 -> "30", 4.5 -> "4.5"
 function AB.Num(v)
   if not v then return "" end
   if v == math.floor(v) then return tostring(v) end
   return string.format("%.1f", v)
+end
+
+-- a jewelry row's targets as text: "30", "30, 25" (with an amulet's second stat), "" for none
+function AB.TargetText(row)
+  local t1, t2 = row.target or 0, row.target2 or 0
+  if t2 > 0 then return ((t1 > 0) and AB.Num(t1) or "-") .. ", " .. AB.Num(t2) end
+  if t1 > 0 then return AB.Num(t1) end
+  return ""
 end
 
 -- a worn piece as a pick, for showing pieces that are not in the build
@@ -1106,7 +1174,7 @@ function AB.Evaluate(b, live, whole)
       inBuild[p.k] = true
       table.insert(res.bans, { pick = p, index = i, info = AB.Info(cls, p), known = live.spells[p.k] })
     else
-      local row = { pick = p, index = i, info = AB.Info(cls, p), target = p.r or 0 }
+      local row = { pick = p, index = i, info = AB.Info(cls, p), target = p.r or 0, target2 = p.r2 or 0 }
       if p.t == "spell" then
         row.rank = live.spells[p.k]
         inBuild[p.k] = true
@@ -1118,6 +1186,7 @@ function AB.Evaluate(b, live, whole)
             row.rarity = live.worn[w].rarity
             row.worn = live.worn[w]
             row.value = AB.WornValue(live.worn[w])
+            row.value2 = AB.WornValue2(live.worn[w])
             break
           end
         end
@@ -1128,9 +1197,10 @@ function AB.Evaluate(b, live, whole)
         row.full = row.owned and row.target > 0 and row.rank >= row.target
       else
         -- jewelry: the value it gives against the value it should reach
-        local reached = row.value ~= nil and row.value >= row.target
-        row.met = row.owned and (row.target == 0 or reached)
-        row.full = row.owned and row.target > 0 and reached
+        local ok1 = row.target == 0 or (row.value ~= nil and row.value >= row.target)
+        local ok2 = row.target2 == 0 or (row.value2 ~= nil and row.value2 >= row.target2)
+        row.met = row.owned and ok1 and ok2
+        row.full = row.owned and (row.target > 0 or row.target2 > 0) and ok1 and ok2
       end
       table.insert(res.rows, row)
     end
@@ -1501,6 +1571,45 @@ local function PickKey(p)
   return p.k
 end
 
+-- what newer versions add after the image link: each stage's recommended stats and the
+-- second targets (stage.item=value): "1:dmg=78,cd=84|2:crit=30;1.3=25"
+local function ExtraString(b, index)
+  local seconds = {}
+  for i = 1, table.getn(b.variants) do
+    local picks = b.variants[i].picks
+    for j = 1, table.getn(picks) do
+      local p = picks[j]
+      if (p.r2 or 0) > 0 then table.insert(seconds, i .. "." .. index[p.t .. "\1" .. PickKey(p)] .. "=" .. AB.Num(p.r2)) end
+    end
+  end
+  local st = {}
+  for i = 1, table.getn(b.variants) do
+    local s = StatsText(b.variants[i].stats)
+    if s ~= "" then table.insert(st, i .. ":" .. s) end
+  end
+  local stats = table.concat(st, "|")
+  if stats == "" and table.getn(seconds) == 0 then return "" end
+  return stats .. ";" .. table.concat(seconds, ",")
+end
+
+local function ReadExtra(b, s, placed)
+  local _, _, stats, seconds = string.find(s, "^([^;]*);?(.*)$")
+  for vi, list in string.gfind(stats or "", "(%d+):([^|]*)") do
+    local v = b.variants[tonumber(vi)]
+    if v then
+      v.stats = v.stats or {}
+      for k, x in string.gfind(list, "(%w+)=([%d%.]+)") do
+        if AB.STAT_UNIT[k] then v.stats[k] = tonumber(x) end
+      end
+    end
+  end
+  for vi, it, v in string.gfind(seconds or "", "(%d+)%.(%d+)=([%d%.]+)") do
+    local byItem = placed[tonumber(vi)]
+    local p = byItem and byItem[tonumber(it)]
+    if p then p.r2 = tonumber(v) end
+  end
+end
+
 function AB.Export(b)
   local out = { string.char(4) }
   PutStr(out, b.class)
@@ -1542,8 +1651,10 @@ function AB.Export(b)
     end
     PutStr(out, v.notes or "")
   end
-  -- the image link comes last: older versions stop reading before it
-  if b.link and b.link ~= "" then PutStr(out, b.link) end
+  -- the image link, then the extras, come last: older versions stop reading before them
+  local extra = ExtraString(b, index)
+  if (b.link and b.link ~= "") or extra ~= "" then PutStr(out, b.link or "") end
+  if extra ~= "" then PutStr(out, extra) end
   local data = Enc(table.concat(out))
   return "ASB2:" .. Sum2(data) .. data
 end
@@ -1580,6 +1691,7 @@ local function ImportV4(data)
   local nStages = r:Var()
   if not nStages then return nil, bad end
   local skipped = 0
+  local placed = {}
   for i = 1, nStages do
     local vname, count = r:Str(), r:Var()
     if not vname or not count then return nil, bad end
@@ -1596,6 +1708,8 @@ local function ImportV4(data)
         local room = AB.Fit(view, p)
         if AB.Info(cls, p) and not AB.FindPick(view, p.t, p.k) and room then
           table.insert(view.picks, p)
+          placed[i] = placed[i] or {}
+          placed[i][math.floor(ref / 4) + 1] = p
         else
           skipped = skipped + 1
         end
@@ -1611,6 +1725,8 @@ local function ImportV4(data)
     end
   end
   b.link = r:Str() or ""
+  local extra = r:Str()
+  if extra then ReadExtra(b, extra, placed) end
   return b, skipped
 end
 

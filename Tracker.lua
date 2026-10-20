@@ -80,11 +80,11 @@ local function RowTip(self, tt)
       tt:AddLine(T("Not taken yet."), 1, 0.4, 0.4)
     end
   end
-  if row and row.target > 0 then
+  if row and (row.target > 0 or (row.target2 or 0) > 0) then
     if row.pick.t == "spell" then
       tt:AddLine(T("Target rank") .. ": " .. row.target, 0.8, 0.8, 0.8)
     else
-      tt:AddLine(T("Target value") .. ": " .. AB.Num(row.target) .. (row.met and ("  |cff55ff55" .. T("reached") .. "|r") or ""), 0.8, 0.8, 0.8)
+      tt:AddLine(T("Target value") .. ": " .. AB.TargetText(row) .. (row.met and ("  |cff55ff55" .. T("reached") .. "|r") or ""), 0.8, 0.8, 0.8)
     end
   end
 end
@@ -358,7 +358,10 @@ local function SetNext(n, label, row, msg, lit)
       if row.pick.t == "spell" then
         now = "R" .. row.rank
       else
-        now = (row.value and AB.Num(row.value) or "?") .. ((row.target > 0) and ("/" .. AB.Num(row.target)) or "")
+        local tt = AB.TargetText(row)
+        now = (row.value and AB.Num(row.value) or "?")
+        if (row.target2 or 0) > 0 then now = now .. ", " .. (row.value2 and AB.Num(row.value2) or "?") end
+        if tt ~= "" then now = now .. "/" .. tt end
       end
       n.text:SetText("|cffffd100" .. T("Upgrade %s", name) .. "|r |cff999999(" .. now .. ")|r")
     else
@@ -651,10 +654,10 @@ local function FillJewelry(b, ev, live)
         end
         local short = AB.WornStats(d.worn, cls)
         if short == "" then short = "..." end
-        local tgt = d.row and d.row.target or 0
-        if tgt > 0 then
+        local tgt = d.row and AB.TargetText(d.row) or ""
+        if tgt ~= "" then
           local col = d.row.met and "|cff33ff33" or "|cffffd100"
-          r.right:SetText(col .. short .. "|r |cff888888/" .. AB.Num(tgt) .. "|r")
+          r.right:SetText(col .. short .. "|r |cff888888/" .. tgt .. "|r")
         else
           r.right:SetText("|cff33ff33" .. short .. "|r")
         end
@@ -668,8 +671,8 @@ local function FillJewelry(b, ev, live)
         if d.row.extra then
           r.right:SetText("|cff88bbff" .. T("alt") .. "|r")
         elseif not live.inRun then
-          local tgt = d.row.target or 0
-          r.right:SetText("|cff777777" .. ((tgt > 0) and ("/" .. AB.Num(tgt)) or T("max")) .. "|r")
+          local tgt = AB.TargetText(d.row)
+          r.right:SetText("|cff777777" .. ((tgt ~= "") and ("/" .. tgt) or T("max")) .. "|r")
         elseif d.row.blocked then
           r.right:SetText("")
         else
