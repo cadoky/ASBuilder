@@ -268,7 +268,7 @@ function P.PaletteTip(self, tt)
     tt:AddLine(T("Click: remove from the build"), 1, 0.5, 0.5)
     tt:AddLine(T("Right-click: take it instead"), 0.5, 1, 0.5)
   elseif p then
-    if p.alt then tt:AddLine(T("Alternative amulet"), 0.5, 0.75, 1) end
+    if p.alt then tt:AddLine(T("Alternative"), 0.5, 0.75, 1) end
     tt:AddLine(T("Click: remove from the build"), 1, 0.5, 0.5)
     if p.t == "spell" then tt:AddLine(T("Right-click: banish this spell"), 1, 0.5, 0.5) end
   else
@@ -385,7 +385,7 @@ local function RefreshPalette(b)
     if kind ~= "legend" then
       local col = full and "|cff55ff55" or "|cffaaaaaa"
       label = label .. "  " .. col .. have .. "/" .. max .. "|r"
-      if kind == "amulet" then label = label .. "  |cff888888(" .. T("1 main + 3 alternatives") .. ")|r" end
+      if AB.ALTS[group] then label = label .. "  |cff888888(" .. T("%d main + %d alternatives", AB.MAIN[group], AB.ALTS[group]) .. ")|r" end
     end
     if kind == "spell" and AB.CountBans(b) > 0 then
       label = label .. "   |cffff5555" .. T("Banish") .. " " .. AB.CountBans(b) .. "/" .. AB.MAX_BAN .. "|r"
@@ -531,20 +531,21 @@ local function Priority(f)
       if not b or not r.pi then return end
       local p = b.picks[r.pi]
       local ok, msg
-      if p and AB.GROUP[p.t] == "amulet" then ok, msg = AB.ToggleAlt(b, r.pi) else ok, msg = AB.ToggleBan(b, r.pi) end
+      if p and AB.ALTS[AB.GROUP[p.t]] then ok, msg = AB.ToggleAlt(b, r.pi) else ok, msg = AB.ToggleBan(b, r.pi) end
       if not ok and msg then Err(msg) end
       Changed()
     end)
     W.Tip(r.ban, function(self, tt)
       local b = Selected()
       local p = b and r.pi and b.picks[r.pi]
-      if p and AB.GROUP[p.t] == "amulet" then
+      if p and AB.ALTS[AB.GROUP[p.t]] then
+        local word = ({ ring = "ring", trinket = "trinket" })[AB.GROUP[p.t]] or "amulet"
         tt:SetText(T("Alternative"), 0.5, 0.75, 1)
         if p.alt then
-          tt:AddLine(T("An alternative: wearing it fills the amulet slot just as well."), 0.8, 0.8, 0.8, 1)
-          tt:AddLine(T("Click: make it the main amulet"), 0.5, 1, 0.5)
+          tt:AddLine(T("An alternative: wearing it fills a %s slot just as well.", word), 0.8, 0.8, 0.8, 1)
+          tt:AddLine(T("Click: make it a main %s", word), 0.5, 1, 0.5)
         else
-          tt:AddLine(T("The main amulet. Click to mark it as an alternative."), 0.8, 0.8, 0.8, 1)
+          tt:AddLine(T("A main %s. Click to mark it as an alternative.", word), 0.8, 0.8, 0.8, 1)
         end
         return
       end
@@ -658,6 +659,28 @@ local function Priority(f)
     local b = Selected()
     if b then b.variant.notes = this:GetText() or "" end
   end)
+
+  -- a link to a picture of the build (talents and so on); addons cannot open a browser,
+  -- so a click selects it for Ctrl+C
+  local ll = W.Text(ed, "GameFontNormalSmall")
+  ll:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -498 - VY)
+  L(ll, "Image link")
+  P.link = W.Edit(ed, "ASBuilderLink", 228, 20)
+  P.link:SetPoint("TOPLEFT", f, "TOPLEFT", 580, -493 - VY)
+  P.link:SetMaxLetters(255)
+  P.link:SetFontObject(GameFontHighlightSmall)
+  P.link:SetScript("OnTextChanged", function()
+    if P.filling then return end
+    local d = Draft()
+    if d then d.link = string.gsub(this:GetText() or "", "%s", ""); P.RefreshDirty() end
+  end)
+  P.link:SetScript("OnEditFocusGained", function() this.focus = true; this:HighlightText() end)
+  P.link:SetScript("OnEditFocusLost", function() this.focus = false; this:HighlightText(0, 0) end)
+  W.Tip(P.link, function(self, tt)
+    tt:SetText(T("Image link"), 1, 0.82, 0)
+    tt:AddLine(T("Paste a picture link (imgur, prnt.sc, Discord) to share your talents with the build."), 0.8, 0.8, 0.8, 1)
+    tt:AddLine(T("To open it: click the box, press Ctrl+C and paste it into your browser. WoW addons cannot open a browser themselves."), 0.6, 0.6, 0.6, 1)
+  end)
 end
 
 local function RefreshPriority(b)
@@ -670,8 +693,9 @@ local function RefreshPriority(b)
   local count = T(AB.GROUP_LABEL[group]) .. ": " .. ((have >= max) and "|cff55ff55" or "|cffcccccc") .. have .. "/" .. max .. "|r"
   if group == "spell" then
     count = count .. "    |cffff6666" .. T("Banish") .. ": " .. AB.CountBans(b) .. "/" .. AB.MAX_BAN .. "|r"
-  elseif group == "amulet" then
-    count = T("Amulet") .. ": " .. (have - AB.CountAlts(b)) .. "/1    |cff88bbff" .. T("Alt") .. ": " .. AB.CountAlts(b) .. "/" .. AB.MAX_ALT .. "|r"
+  elseif AB.ALTS[group] then
+    local alts = AB.CountAlts(b, group)
+    count = T(AB.GROUP_LABEL[group]) .. ": " .. (have - alts) .. "/" .. AB.MAIN[group] .. "    |cff88bbff" .. T("Alt") .. ": " .. alts .. "/" .. AB.ALTS[group] .. "|r"
   end
   P.tabCount:SetText(count)
   local inTab = 0
@@ -690,13 +714,13 @@ local function RefreshPriority(b)
       local info = AB.Info(b.class, p)
       r.icon.icon:SetTexture(AB.Icon(info and info.icon))
       r.name:SetText(info and info.name or p.k)
-      local isAmulet = AB.GROUP[p.t] == "amulet"
-      r.name:SetWidth((p.t == "spell" or isAmulet) and 86 or 128)
+      local canAlt = AB.ALTS[AB.GROUP[p.t]] ~= nil
+      r.name:SetWidth((p.t == "spell" or canAlt) and 86 or 128)
       if p.t == "spell" then
         r.ban:Show()
         r.ban:SetLabel(T("Banish"))
         r.ban:SetDanger(p.ban)
-      elseif isAmulet then
+      elseif canAlt then
         r.ban:Show()
         r.ban:SetLabel(T("Alt"))
         r.ban:SetSelected(p.alt)
@@ -751,7 +775,7 @@ local function RefreshPriority(b)
           r.unit:SetText((not stat or string.find(stat, "%%")) and "%" or "")
         end
         if p.alt then r.bg:SetVertexColor(0.3, 0.55, 1, 0.07) else r.bg:SetVertexColor(1, 1, 1, 0.035) end
-        local mains = takes - (isAmulet and AB.CountAlts(b) or 0)
+        local mains = takes - (canAlt and AB.CountAlts(b, group) or 0)
         if p.alt then
           r.up:SetOn(i > mains + 1)
           r.down:SetOn(i < takes)
@@ -1111,6 +1135,7 @@ local function Create()
   f:SetScript("OnHide", function()
     P.nameEdit:ClearFocus()
     P.notes.edit:ClearFocus()
+    P.link:ClearFocus()
   end)
 end
 
@@ -1151,6 +1176,7 @@ function P.Refresh()
     P.nameEdit:SetText(d.name)
   end
   if P.notes.edit:GetText() ~= (b.variant.notes or "") then P.notes.edit:SetText(b.variant.notes or "") end
+  if P.link:GetText() ~= (d.link or "") and not P.link.focus then P.link:SetText(d.link or "") end
   if P.stageEdit:GetText() ~= b.variant.name and not P.stageFocus then P.stageEdit:SetText(b.variant.name) end
   P.filling = false
   P.RefreshStages(d)

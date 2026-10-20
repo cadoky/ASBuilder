@@ -8,7 +8,10 @@ local D = ASBuilder_Data
 AB.VERSION = "1.1.0"
 
 -- how many of each a hero can hold in a run
-AB.MAX = { spell = 6, ring = 2, trinket = 2, amulet = 4 }   -- amulet: 1 main + 3 alternatives
+AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
+-- the main picks of each group, and how many alternatives it may hold on top
+AB.MAIN = { spell = 6, ring = 2, trinket = 2, amulet = 1 }
+AB.ALTS = { ring = 2, trinket = 2, amulet = 3 }
 -- spells marked to be banished when their card comes up (a run grants up to 3 banishes)
 AB.MAX_BAN = 3
 -- the slot group each kind of pick takes
@@ -254,6 +257,7 @@ local function Upgrade(b)
     if type(v.notes) ~= "string" then v.notes = "" end
     if type(v.name) ~= "string" or v.name == "" then v.name = AB.STAGE_NAMES[i] end
   end
+  if type(b.link) ~= "string" then b.link = "" end
   if type(b.stash) ~= "table" then b.stash = {} end
   for cls, byStage in pairs(b.stash) do
     -- the old form held one list per class: it belonged to the first stage
@@ -261,6 +265,36 @@ local function Upgrade(b)
     elseif byStage[1] and byStage[1].t then b.stash[cls] = { [1] = byStage } end
   end
   if b.fill == nil then b.fill = true end
+end
+
+-- The builds that come with the addon (Defaults.lua). Each is added once, by its key, and
+-- never again: a player's own builds, and defaults they changed or deleted, stay untouched
+-- by updates. A default whose class and name a build already has is not added.
+local function AddDefaults(db)
+  local list = ASBuilder_Defaults
+  if type(list) ~= "table" then return end
+  if type(db.defaults) ~= "table" then db.defaults = {} end
+  for i = 1, table.getn(list) do
+    local d = list[i]
+    if d.key and not db.defaults[d.key] and AB.classIndex[d.class] then
+      db.defaults[d.key] = true
+      local have = false
+      for j = 1, table.getn(db.builds) do
+        if db.builds[j].class == d.class and db.builds[j].name == d.name then have = true end
+      end
+      if not have then
+        local b = AB.CloneBuild(d)
+        b.id = nil
+        for vi = 1, table.getn(b.variants) do
+          local picks = b.variants[vi].picks
+          for j = table.getn(picks), 1, -1 do
+            if not AB.Info(b.class, picks[j]) then table.remove(picks, j) end
+          end
+        end
+        AB.AddBuild(b)
+      end
+    end
+  end
 end
 
 function AB.InitDB()
@@ -308,6 +342,7 @@ function AB.InitDB()
     end
   end
   db.dataVersion = 2
+  AddDefaults(db)
 end
 
 function AB.IsJewel(p) return p and p.t ~= "spell" end
@@ -364,7 +399,7 @@ end
 
 -- a full, separate copy of a build (the planner edits one of these until you press Save)
 function AB.CloneBuild(b)
-  return { id = b.id, class = b.class, name = b.name, fill = b.fill,
+  return { id = b.id, class = b.class, name = b.name, fill = b.fill, link = b.link or "",
     variants = CopyVariants(b.variants), stash = CopyStash(b.stash) }
 end
 
@@ -388,7 +423,7 @@ function AB.Serialize(b)
     end
   end
   table.sort(stash)
-  local parts = { b.name or "", b.class or "", (b.fill == false) and "0" or "1" }
+  local parts = { b.name or "", b.class or "", (b.fill == false) and "0" or "1", b.link or "" }
   for i = 1, table.getn(b.variants or {}) do
     local v = b.variants[i]
     table.insert(parts, (v.name or "") .. "#" .. PicksString(v.picks) .. "#" .. (v.notes or ""))
@@ -422,6 +457,7 @@ function AB.SaveDraft(draft)
   saved.class = draft.class
   saved.name = draft.name
   saved.fill = draft.fill
+  saved.link = draft.link or ""
   saved.variants = CopyVariants(draft.variants)
   saved.stash = CopyStash(draft.stash)
   return saved
@@ -450,7 +486,7 @@ local function Earlier(b, vi)
       local key = p.t .. ":" .. p.k
       if p.ban then
         bans[p.k] = bans[p.k] or v.name
-      elseif KEEPS[p.t] and not takes[key] then
+      elseif KEEPS[p.t] and not p.alt and not takes[key] then
         takes[key] = p
         from[key] = v.name
       end
@@ -511,8 +547,9 @@ function AB.FixStage(b, vi)
       local i = AB.FindPick(view, p.t, p.k)
       local group = AB.GROUP[p.t]
       if i and view.picks[i].ban then table.remove(view.picks, i) end
-      if AB.CountGroup(view, group) < AB.MAX[group] then
-        table.insert(view.picks, { t = p.t, k = p.k, r = p.r or 0 })
+      local np = { t = p.t, k = p.k, r = p.r or 0 }
+      if AB.Fit(view, np) then
+        table.insert(view.picks, np)
       else
         left = left + 1
       end
@@ -568,9 +605,10 @@ end
 
 -- ---------------------------------------------------------------- picks (on a stage view)
 -- A pick is { t = "spell"|"ring"|"trinket"|"amulet"|"legend", k, r = target rank (0 = max),
--- ban = a spell to banish, alt = an alternative amulet }. The amulet group holds one main
--- amulet and up to three alternatives: wearing any of them fills the amulet slot.
-AB.MAX_ALT = 3
+-- ban = a spell to banish, alt = an alternative }. Rings, trinkets and the amulet hold their
+-- main picks (AB.MAIN) plus a few alternatives (AB.ALTS): wearing an alternative fills a slot
+-- of its group just as well.
+AB.MAX_ALT = AB.ALTS.amulet
 
 -- picks that take a place in the group (a spell marked to banish takes none)
 function AB.CountGroup(b, group)
@@ -590,12 +628,26 @@ function AB.CountBans(b)
   return n
 end
 
-function AB.CountAlts(b)
+-- alternatives in one group (in every group when none is given)
+function AB.CountAlts(b, group)
   local n = 0
   for i = 1, table.getn(b.picks) do
-    if b.picks[i].alt then n = n + 1 end
+    local p = b.picks[i]
+    if p.alt and (not group or AB.GROUP[p.t] == group) then n = n + 1 end
   end
   return n
+end
+
+-- Whether one more pick like p fits in a stage view. A main pick with its group's main
+-- places full becomes an alternative, and an alternative with no place left a main pick.
+function AB.Fit(view, p)
+  if p.ban then return AB.CountBans(view) < AB.MAX_BAN end
+  local group = AB.GROUP[p.t]
+  if not group or AB.CountGroup(view, group) >= AB.MAX[group] then return false end
+  local alts = AB.CountAlts(view, group)
+  if p.alt and alts >= (AB.ALTS[group] or 0) then p.alt = nil end
+  if not p.alt and AB.CountGroup(view, group) - alts >= AB.MAIN[group] then p.alt = true end
+  return true
 end
 
 function AB.FindPick(b, t, k)
@@ -610,8 +662,8 @@ local function FullMsg(group)
   return T("Slot full: %s (%d at most)", T(AB.GROUP_LABEL[group]), AB.MAX[group])
 end
 
--- Adds a pick, or removes it if it is there. ban: add a spell as one to banish. A new
--- amulet is the main one when there is none yet, else an alternative.
+-- Adds a pick, or removes it if it is there. ban: add a spell as one to banish. A new ring,
+-- trinket or amulet is a main pick while there is room, else an alternative.
 -- Returns false and a message when there is no room.
 function AB.TogglePick(b, t, k, ban)
   local i = AB.FindPick(b, t, k)
@@ -625,7 +677,7 @@ function AB.TogglePick(b, t, k, ban)
   local group = AB.GROUP[t]
   if AB.CountGroup(b, group) >= AB.MAX[group] then return false, FullMsg(group) end
   local p = { t = t, k = k, r = 0 }
-  if group == "amulet" and AB.CountGroup(b, "amulet") > AB.CountAlts(b) then p.alt = true end
+  if AB.ALTS[group] and AB.CountGroup(b, group) - AB.CountAlts(b, group) >= AB.MAIN[group] then p.alt = true end
   table.insert(b.picks, p)
   return true
 end
@@ -655,19 +707,23 @@ function AB.ToggleBan(b, i)
   return true
 end
 
--- an amulet becomes an alternative, or the main one (the old main one then becomes an
--- alternative in its place)
+-- a ring, trinket or amulet becomes an alternative, or a main pick (with the main places
+-- full, the last main pick of the group becomes an alternative in its place)
 function AB.ToggleAlt(b, i)
   local p = b.picks[i]
-  if not p or AB.GROUP[p.t] ~= "amulet" then return false end
+  local group = p and AB.GROUP[p.t]
+  if not p or not AB.ALTS[group] then return false end
   if p.alt then
-    for j = 1, table.getn(b.picks) do
-      local q = b.picks[j]
-      if j ~= i and AB.GROUP[q.t] == "amulet" and not q.alt then q.alt = true end
+    if AB.CountGroup(b, group) - AB.CountAlts(b, group) >= AB.MAIN[group] then
+      local idx = AB.TabIndices(b, group)
+      for n = table.getn(idx), 1, -1 do
+        local q = b.picks[idx[n]]
+        if not q.alt and not q.ban then q.alt = true; break end
+      end
     end
     p.alt = nil
   else
-    if AB.CountAlts(b) >= AB.MAX_ALT then return false, T("Three alternatives at most.") end
+    if AB.CountAlts(b, group) >= AB.ALTS[group] then return false, T("%d alternatives at most.", AB.ALTS[group]) end
     p.alt = true
   end
   return true
@@ -1079,22 +1135,35 @@ function AB.Evaluate(b, live, whole)
       table.insert(res.rows, row)
     end
   end
-  -- the amulet and its alternatives fill one slot: the worn one (or else the main one)
-  -- stands for them; the others are "extra" and, once one is worn, hidden
-  local am = {}
-  for i = 1, table.getn(res.rows) do
-    if AB.GROUP[res.rows[i].pick.t] == "amulet" then table.insert(am, res.rows[i]) end
-  end
-  if table.getn(am) > 1 then
-    local rep
-    for i = 1, table.getn(am) do if am[i].owned then rep = am[i]; break end end
-    local worn = rep ~= nil
-    if not rep then
-      for i = 1, table.getn(am) do if not am[i].pick.alt then rep = am[i]; break end end
+  -- a group with more picks than slots (alternatives): the worn picks, then the main ones,
+  -- then the alternatives fill its slots and stand for it; the others are "extra" and,
+  -- once every slot of the group is worn, hidden
+  local jgroups = { "ring", "trinket", "amulet" }
+  for g = 1, table.getn(jgroups) do
+    local list = {}
+    for i = 1, table.getn(res.rows) do
+      if AB.GROUP[res.rows[i].pick.t] == jgroups[g] then table.insert(list, res.rows[i]) end
     end
-    rep = rep or am[1]
-    for i = 1, table.getn(am) do
-      if am[i] ~= rep then am[i].extra = true; am[i].hide = worn end
+    local cap = AB.SLOT_CAP[jgroups[g]]
+    if table.getn(list) > cap then
+      local rep, n, worn = {}, 0, 0
+      for pass = 1, 3 do
+        for i = 1, table.getn(list) do
+          local r = list[i]
+          local want
+          if pass == 1 then want = r.owned
+          elseif pass == 2 then want = not r.owned and not r.pick.alt
+          else want = not r.owned and r.pick.alt end
+          if want and n < cap then
+            rep[r] = true
+            n = n + 1
+            if pass == 1 then worn = worn + 1 end
+          end
+        end
+      end
+      for i = 1, table.getn(list) do
+        if not rep[list[i]] then list[i].extra = true; list[i].hide = worn >= cap end
+      end
     end
   end
   -- a slot group filled with other pieces: its missing picks cannot be taken now
@@ -1302,10 +1371,11 @@ local function Sum(s)
   return C(math.floor(n / 262144)) .. C(math.mod(math.floor(n / 4096), 64)) .. C(math.mod(math.floor(n / 64), 64)) .. C(math.mod(n, 64))
 end
 
--- one letter per kind of pick; "x" is a spell to banish, "b"/"c" an alternative amulet
+-- one letter per kind of pick; "x" is a spell to banish, "b"/"c"/"q"/"u" an alternative
 local LETTER = { spell = "s", ring = "r", trinket = "t", amulet = "a", legend = "l" }
-local ALT_LETTER = { amulet = "b", legend = "c" }
-local KIND = { s = "spell", r = "ring", t = "trinket", a = "amulet", l = "legend", x = "spell", b = "amulet", c = "legend" }
+local ALT_LETTER = { amulet = "b", legend = "c", ring = "q", trinket = "u" }
+local KIND = { s = "spell", r = "ring", t = "trinket", a = "amulet", l = "legend", x = "spell", b = "amulet", c = "legend", q = "ring", u = "trinket" }
+local IS_ALT = { b = true, c = true, q = true, u = true }
 
 local function Esc(s)
   s = string.gsub(s or "", "\\", "\\\\")
@@ -1472,6 +1542,8 @@ function AB.Export(b)
     end
     PutStr(out, v.notes or "")
   end
+  -- the image link comes last: older versions stop reading before it
+  if b.link and b.link ~= "" then PutStr(out, b.link) end
   local data = Enc(table.concat(out))
   return "ASB2:" .. Sum2(data) .. data
 end
@@ -1520,15 +1592,8 @@ local function ImportV4(data)
       local flag = math.mod(ref, 4)
       if view and it and it.t then
         local p = { t = it.t, k = it.k, r = target / 10 }
-        local room
-        if flag == 1 then
-          p.ban, p.r = true, 0
-          room = AB.CountBans(view) < AB.MAX_BAN
-        else
-          if flag == 2 then p.alt = true end
-          local group = AB.GROUP[p.t]
-          room = group and AB.CountGroup(view, group) < AB.MAX[group]
-        end
+        if flag == 1 then p.ban, p.r = true, 0 elseif flag == 2 then p.alt = true end
+        local room = AB.Fit(view, p)
         if AB.Info(cls, p) and not AB.FindPick(view, p.t, p.k) and room then
           table.insert(view.picks, p)
         else
@@ -1545,6 +1610,7 @@ local function ImportV4(data)
       v.notes = notes
     end
   end
+  b.link = r:Str() or ""
   return b, skipped
 end
 
@@ -1569,15 +1635,9 @@ local function ReadPicks(view, text)
     local _, _, l, k, r = string.find(entry, "^(%a):(.-):([%d%.]+)$")
     local t = l and KIND[l]
     local p = t and { t = t, k = k, r = tonumber(r) or 0 }
-    local group = t and AB.GROUP[t]
-    local room
-    if l == "x" then
-      if p then p.ban = true; p.r = 0 end
-      room = AB.CountBans(view) < AB.MAX_BAN
-    else
-      if p and (l == "b" or l == "c") then p.alt = true end
-      room = group and AB.CountGroup(view, group) < AB.MAX[group]
-    end
+    if p and l == "x" then p.ban = true; p.r = 0 end
+    if p and IS_ALT[l] then p.alt = true end
+    local room = p and AB.Fit(view, p)
     if p and AB.Info(view.class, p) and not AB.FindPick(view, t, k) and room then
       table.insert(view.picks, p)
     else

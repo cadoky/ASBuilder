@@ -134,7 +134,7 @@ function W.Slot(parent, size)
     self.num:SetText("B")
     self.num:SetTextColor(1, 0.3, 0.3)
   end
-  -- an alternative amulet: a blue frame and a blue A
+  -- an alternative ring, trinket or amulet: a blue frame and a blue A
   function b:SetAlt()
     self:SetBackdropBorderColor(0.4, 0.65, 1, 1)
     self.icon:SetVertexColor(1, 1, 1)

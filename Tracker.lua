@@ -17,7 +17,7 @@ local WIDTH = 240
 local ROW_H = 16
 local GAP = 3
 local SPELL_ROWS = 15   -- 6 build spells, up to 6 others you know, 3 to banish
-local JEWEL_ROWS = 10
+local JEWEL_ROWS = 12
 local DOT = "Interface\\CharacterFrame\\TempPortraitAlphaMask"   -- a white circle
 
 local f
