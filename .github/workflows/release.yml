@@ -21,7 +21,7 @@ jobs:
           TAG="v$VER"
           if gh release view "$TAG" >/dev/null 2>&1; then echo "$TAG already released"; exit 0; fi
           mkdir -p "/tmp/pkg/$NAME"
-          rsync -a --exclude '.git' --exclude '.github' --exclude '.gitignore' --exclude 'RELEASE_NOTES.md' ./ "/tmp/pkg/$NAME/"
+          rsync -a --exclude '.git' --exclude '.github' --exclude '.gitignore' --exclude 'RELEASE_NOTES.md' --exclude 'tools' ./ "/tmp/pkg/$NAME/"
           (cd /tmp/pkg && zip -qr "$GITHUB_WORKSPACE/$NAME-$TAG.zip" "$NAME")
           NOTES=RELEASE_NOTES.md; [ -f "$NOTES" ] || NOTES=/dev/null
           gh release create "$TAG" "$NAME-$TAG.zip" --title "$NAME $TAG" --notes-file "$NOTES" --target "$GITHUB_SHA"

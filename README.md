@@ -27,7 +27,7 @@ Type `/asb` or click the minimap button to open the planner. See `README.txt` fo
 
 ## After a game update
 
-New spells and jewelry come from the game itself: double-click `tools/Update-Data.cmd`, then `/reload` in the game. It only reads `AzerothSurvivors.exe`; it changes nothing there. Amulet stats live in `Stats.lua`, which the tool never overwrites. The tool names any new amulet that `Stats.lua` doesn't cover yet.
+New spells and jewelry come from the game itself: `tools/extract.py` (dev only, not in the release zip) reads `AzerothSurvivors.exe` and rewrites `Data.lua` and `Names.lua`. Amulet stats live in `Stats.lua`, which it never overwrites; it names any new amulet that `Stats.lua` doesn't cover yet.
 
 ## Author
 
