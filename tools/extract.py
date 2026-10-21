@@ -145,7 +145,7 @@ def translations(exe):
     d = exe.data
     blocks, seen = [], set()
     for m in re.finditer(rb'"jewel\.[a-z0-9_]+":', d):
-        a = d.rfind(b'{\n', 0, m.start())
+        a = max(d.rfind(b'{\n', 0, m.start()), d.rfind(b'{\r\n', 0, m.start()))  # CRLF since 0.108.0
         if a in seen:
             continue
         seen.add(a)
