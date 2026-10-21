@@ -1,7 +1,6 @@
-Small update for game 0.105.0.
+Small bugfix update, checked against game 0.106.0 (nothing in the data changed).
 
-- **Demonic Empowerment**: the warlock's new spell is in the planner now, with its legendary amulet, The Legionlord's Medallion.
-- **Legionlord's Medallion stats**: until you wear it, the tooltip shows the values from the patch notes (at rank 10). Once you wear it, it shows the real lines from the game.
-- **Update-Data.cmd works again**: on 0.105.0 it dropped two legendary amulets (Charm of the Fated Hour, Amulet of the Ancients) and wrote one line in Polish. Fixed.
+- **Banish box on the card screen**: once every spell of the build was taken, the spells to banish disappeared from the card screen too, even with a free spell slot left. They now stay while a new spell can still be offered.
+- **Resize grip getting stuck**: dragging the tracker's corner could keep resizing after you let go, and the tracker couldn't be moved anymore. It now stops when you release the mouse (or click the grip again).
 
 Not tested in game yet, let me know if something looks off.

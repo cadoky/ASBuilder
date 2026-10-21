@@ -183,11 +183,20 @@ local function Create()
     tt:SetText(T("Drag to resize"), 1, 0.82, 0)
     tt:AddLine(T("/asb reset: normal size and place"), 0.6, 0.6, 0.6, 1)
   end)
+  local function StopSizing()
+    if not grip:GetScript("OnUpdate") then return end
+    grip:SetScript("OnUpdate", nil)
+    ASBuilderDB.tracker.scale = f:GetScale()
+    SavePoint()
+  end
   grip:SetScript("OnMouseDown", function()
+    -- the mouse-up can be lost (the grip moves away from the cursor): a second click ends it
+    if grip:GetScript("OnUpdate") then StopSizing(); return end
     if ASBuilderDB.tracker.locked then return end
     local eff = f:GetEffectiveScale()
     grip.left, grip.top = f:GetLeft() * eff, f:GetTop() * eff
     grip:SetScript("OnUpdate", function()
+      if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then StopSizing(); return end
       local ui = UIParent:GetEffectiveScale()
       local x = GetCursorPosition()
       local s = (x - grip.left) / (WIDTH * ui)
@@ -197,12 +206,8 @@ local function Create()
       f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", grip.left / (s * ui), grip.top / (s * ui))
     end)
   end)
-  grip:SetScript("OnMouseUp", function()
-    if not grip:GetScript("OnUpdate") then return end
-    grip:SetScript("OnUpdate", nil)
-    ASBuilderDB.tracker.scale = f:GetScale()
-    SavePoint()
-  end)
+  grip:SetScript("OnMouseUp", StopSizing)
+  grip:SetScript("OnHide", StopSizing)
 
   -- BUILD panel: header, the next steps, the spells to banish
   local pb = Panel(nil)
@@ -528,6 +533,16 @@ local function Dot(r, c)
   r.dot:Show()
 end
 
+-- spell slots used: every spell of the class you know
+local function SpellsUsed(cls, live)
+  local used = 0
+  local c = AB.ClassInfo(cls)
+  if c and live.inRun then
+    for j = 1, table.getn(c.spells) do if live.spells[c.spells[j].key] then used = used + 1 end end
+  end
+  return used
+end
+
 local function FillSpells(b, ev, live)
   local ps = f.pSpells
   for i = 1, SPELL_ROWS do f.spellRows[i]:Hide() end
@@ -535,12 +550,7 @@ local function FillSpells(b, ev, live)
   f.missLabel:Hide()
   if not b then return nil end
   local top, below = {}, {}
-  -- slots used: every spell of the class you know
-  local used = 0
-  local c = AB.ClassInfo(b.class)
-  if c and live.inRun then
-    for j = 1, table.getn(c.spells) do if live.spells[c.spells[j].key] then used = used + 1 end end
-  end
+  local used = SpellsUsed(b.class, live)
   local full = live.inRun and used >= (AB.MAX.spell or 6)
   for i = 1, table.getn(ev.rows) do
     local row = ev.rows[i]
@@ -901,7 +911,7 @@ end
 -- glow colours: spell to take, spell to banish, jewelry, amulet alternative
 local GLOW = { spell = { 0.3, 1, 0.3 }, ban = { 1, 0.15, 0.15 }, jewel = { 1, 0.85, 0.2 }, alt = { 0.2, 1, 0.95 } }
 
-local function FillChoice(p, ev, isSpell)
+local function FillChoice(p, ev, isSpell, slotsFull)
   local list = {}
   for i = 1, table.getn(ev.rows) do
     local ok, alt = Wanted(ev.rows[i], isSpell)
@@ -909,8 +919,8 @@ local function FillChoice(p, ev, isSpell)
       table.insert(list, { info = ev.rows[i].info, pick = ev.rows[i].pick, glow = alt and GLOW.alt or (isSpell and GLOW.spell or GLOW.jewel) })
     end
   end
-  -- the spells to banish stay until every spell of the build is taken
-  if isSpell and table.getn(list) > 0 then
+  -- the spells to banish stay while a new spell can still be offered
+  if isSpell and (table.getn(list) > 0 or not slotsFull) then
     local banished = ASBuilderDB.run.banished or {}
     for i = 1, table.getn(ev.bans) do
       local d = ev.bans[i]
@@ -945,7 +955,7 @@ local function FillChoice(p, ev, isSpell)
   if n > 0 then p:Show() else p:Hide() end
 end
 
-local function ShowChoice(ev)
+local function ShowChoice(ev, slotsFull)
   if not choice then
     choice = CreateFrame("Frame", nil, UIParent)
     choice.spells = ChoiceBox(T("Build spells"), "TOPLEFT", 40)
@@ -958,7 +968,7 @@ local function ShowChoice(ev)
       end
     end)
   end
-  FillChoice(choice.spells, ev, true)
+  FillChoice(choice.spells, ev, true, slotsFull)
   FillChoice(choice.jewel, ev, false)
   choice:Show()
 end
@@ -1004,7 +1014,7 @@ function TR.Refresh()
   end
   f:SetHeight(y)
   f:Show()
-  if b and live.phase == "choosing" then ShowChoice(ev) end
+  if b and live.phase == "choosing" then ShowChoice(ev, SpellsUsed(b.class, live) >= (AB.MAX.spell or 6)) end
 end
 
 AB.RefreshTracker = TR.Refresh
