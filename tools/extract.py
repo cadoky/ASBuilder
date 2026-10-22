@@ -7,7 +7,8 @@ of every piece of jewelry in the game's 14 languages, so a worn piece is recogni
 them). Run it again after a game update and new spells and jewelry are in the addon.
 
 Usage:  python extract.py [path\\to\\AzerothSurvivors.exe]
-        (default: the game three folders up, as when this file sits in AddOns\\ASBuilder\\tools)
+        (default: the game one folder up, as when this file sits in <game>\\.asb_tools;
+        it writes into <game>\\AddOns\\ASBuilder)
 
 Standard library only. It does not change the game; it only reads the exe.
 """
@@ -144,7 +145,7 @@ def translations(exe):
     d = exe.data
     blocks, seen = [], set()
     for m in re.finditer(rb'"jewel\.[a-z0-9_]+":', d):
-        a = d.rfind(b'{\n', 0, m.start())
+        a = max(d.rfind(b'{\n', 0, m.start()), d.rfind(b'{\r\n', 0, m.start()))  # CRLF since 0.108.0
         if a in seen:
             continue
         seen.add(a)
@@ -391,10 +392,10 @@ def stats_gaps(out, stats_path):
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
-    exe = sys.argv[1] if len(sys.argv) > 1 else os.path.normpath(os.path.join(here, '..', '..', '..', 'AzerothSurvivors.exe'))
+    exe = sys.argv[1] if len(sys.argv) > 1 else os.path.normpath(os.path.join(here, '..', 'AzerothSurvivors.exe'))
     if not os.path.isfile(exe):
         raise SystemExit('AzerothSurvivors.exe not found at ' + exe + '\nGive its path: python extract.py "C:\\...\\AzerothSurvivors.exe"')
-    addon = os.path.normpath(os.path.join(here, '..'))
+    addon = os.path.normpath(os.path.join(here, '..', 'AddOns', 'ASBuilder'))
     print('Reading', exe)
     t = time.time()
     out = extract(exe)

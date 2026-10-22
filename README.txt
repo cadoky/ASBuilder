@@ -90,11 +90,8 @@ GAME DATA AND UPDATES
   - Data.lua and Names.lua are generated from the game itself (AzerothSurvivors.exe):
     classes, spells and their icons, rings, trinkets, amulets, legendary amulets, and the
     names of every piece of jewelry in the game's 14 languages.
-  - After a game update: double-click tools\Update-Data.cmd, then /reload in the game.
-    New spells and jewelry are in the planner. It uses the co-op's Python if it is there,
-    else a Python 3 from python.org. It only reads the game; it changes nothing there.
-  - If the game's layout changes so much that the extractor cannot find a table, it says
-    so instead of writing anything.
+  - After a game update, a new ASBuilder release brings the new spells and jewelry.
+    Nothing to run on your side.
 
 NOTES
   - Spell ranks come from the game (AZS_SPELLS). Jewelry values come from each worn piece's
@@ -102,6 +99,6 @@ NOTES
   - Jewelry is recognised in every language the game ships.
   - Every amulet shows its base stats in the planner, and every legendary amulet what it
     does to its spell. The game keeps these in its code, not as text, so they live in
-    Stats.lua, which the update tool never overwrites. An amulet added by a game update
-    shows what it gave once you have worn it; the update tool names any that Stats.lua lacks.
+    Stats.lua, which the data update never overwrites. An amulet added by a game update
+    shows what it gave once you have worn it.
   - Talents are spent between runs and cannot be read, so write your talent plan in Notes.

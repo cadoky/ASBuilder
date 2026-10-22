@@ -281,7 +281,7 @@ ASBuilder_Defaults = {
     } },
   } },
   { key = "warlock_affli_warlock", class = "warlock", name = "Affli Warlock", fill = true, link = "", variants = {
-    { name = "Early Game", notes = "The early game of Affli Warlock is slow, you don't have any nukes and all you can do is run around and wait for enemies to die. As you level up, pick up Agony, Drain Life and Soul Fire. These will help you kill off lesser enemies and Soul Fire will kill the Elites. Banish all amulets that are not alternative/main", picks = {
+    { name = "Early Game", notes = "The early game of Affli Warlock is slow, you don't have any nukes and all you can do is run around and wait for enemies to die. As you level up, pick up Agony, Drain Life and Soulfire. These will help you kill off lesser enemies and Soulfire will kill the Elites. Banish all amulets that are not alternative/main", picks = {
       { t = "trinket", k = "Mark of the Chosen", r = 0 },
       { t = "amulet", k = "Pristine Enchanted South Seas Kelp", r = 0, alt = true },
       { t = "spell", k = "curse_of_agony", r = 0 },
@@ -298,7 +298,7 @@ ASBuilder_Defaults = {
     } },
     { name = "Mid Game", notes = "Mid game is where you will notice the DoT damage ramp up substantially. Around the 9-11 minute mark, if you aren't incredibly unlucky, you should be around 100k dps and most trash mobs die within seconds. Banish all amulets that are not alternative/main", picks = {
     } },
-    { name = "End Game", notes = "You are a God of DoT's. If you managed to collect the Pendant of the Plague Agony/Corruption, the AoE damage they deal should clear out a good portion of trash mobs when 3-4 of them die. This will also deal noticable damage to bosses, though Soul Fire is still good.", picks = {
+    { name = "End Game", notes = "You are a God of DoT's. If you managed to collect the Pendant of the Plague Agony/Corruption, the AoE damage they deal should clear out a good portion of trash mobs when 3-4 of them die. This will also deal noticable damage to bosses, though Soulfire is still good.", picks = {
     } },
     { name = "Endless", notes = "Don't. Just don't. Warlocks have no true defensive cooldowns, have no speedups and low armor. At 40+ minutes, the enemies simply deal enough damage to 1 shot you. No amount of Spell Vamp will be enough to outdamage it. It's fun to play, but Warlock is not good at Endless.", picks = {
     } },

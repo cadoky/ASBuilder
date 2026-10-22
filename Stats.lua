@@ -129,7 +129,7 @@ ASBuilder_LegendStats = {
     searing_pain = { "Searing Pain: +4 targets", "Searing Pain: +20% damage", "Searing Pain's hits strike again for 30%" },
     drain_life = { "Drain Life: +3 targets", "Drain Life: +90% damage", "Enemies that die with Drain Life on them explode for 20% of their max health" },
     fear = { "Fear: +1 target", "Fear: +20% damage", "Fear's hits leap to 2 more enemies for 30%" },
-    soul_fire = { "Soul Fire: +60% damage", "Soul Fire: +100% proc rate" },
+    soul_fire = { "Soulfire: +60% damage", "Soulfire: +100% proc rate" },
     -- from the 0.105.0 patch notes (values at rank 10, they grow from rank 3)
     demonic_empowerment = { "Demonic Empowerment: up to +200% duration", "Demonic Empowerment: up to +150% demon damage", "Demonic Empowerment: up to -75% cooldown", "Demonic Empowerment: up to +200% strength" },
   },
