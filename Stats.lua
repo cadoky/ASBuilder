@@ -5,7 +5,6 @@
 
 ASBuilder_AmuletStats = {
   mark_of_fordring = { "+15% damage" },
-  star_of_mystaria = { "+25% max health", "+4% damage reduction" },
   talvash = { "-10% cooldowns" },
   south_seas_kelp = { "+30% luck", "+25% gold" },
   prestor = { "+16% damage", "+4% critical strike" },
@@ -130,8 +129,8 @@ ASBuilder_LegendStats = {
     drain_life = { "Drain Life: +3 targets", "Drain Life: +90% damage", "Enemies that die with Drain Life on them explode for 20% of their max health" },
     fear = { "Fear: +1 target", "Fear: +20% damage", "Fear's hits leap to 2 more enemies for 30%" },
     soul_fire = { "Soulfire: +60% damage", "Soulfire: +100% proc rate" },
-    -- from the 0.105.0 patch notes (values at rank 10, they grow from rank 3)
-    demonic_empowerment = { "Demonic Empowerment: up to +200% duration", "Demonic Empowerment: up to +150% demon damage", "Demonic Empowerment: up to -75% cooldown", "Demonic Empowerment: up to +200% strength" },
+    -- from the 0.111.0 patch notes: works like The Eternal Talisman does for Battle Shout
+    demonic_empowerment = { "Demonic Empowerment: +100% duration", "Demonic Empowerment: -35% cooldown", "Demonic Empowerment: +100% strength" },
   },
   druid = {
     wrath = { "Wrath: +1 target", "Wrath: +20% damage", "Wrath's hits leap to 2 more enemies for 30%" },

@@ -374,6 +374,15 @@ local function AddDefaults(db)
   end
 end
 
+-- an amulet the game turned into a trinket (Star of Mystaria, 0.111.0) stays in the build as
+-- that trinket while the stage has room for it; otherwise it is dropped like any unknown pick
+local function MovedToTrinket(stage, p)
+  if p.t ~= "amulet" or AB.amuletByName[p.k] or not AB.trinketByName[p.k] then return end
+  if stage and AB.CountGroup(stage, "trinket") >= AB.MAX.trinket then return end
+  p.t, p.r2, p.alt = "trinket", nil, nil
+  if stage and AB.CountGroup(stage, "trinket") > AB.MAIN.trinket then p.alt = true end
+end
+
 function AB.InitDB()
   if type(ASBuilderDB) ~= "table" then ASBuilderDB = {} end
   local db = ASBuilderDB
@@ -404,12 +413,14 @@ function AB.InitDB()
     for vi = 1, table.getn(b.variants) do
       local list = b.variants[vi].picks
       for j = table.getn(list), 1, -1 do
+        MovedToTrinket(b.variants[vi], list[j])
         if not AB.Info(b.class, list[j]) then table.remove(list, j) end
       end
     end
     for cls, byStage in pairs(b.stash) do
       for vi, list in pairs(byStage) do
         for j = table.getn(list), 1, -1 do
+          MovedToTrinket(nil, list[j])
           if not AB.Info(cls, list[j]) then table.remove(list, j) end
         end
       end
