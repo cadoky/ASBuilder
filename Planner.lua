@@ -144,7 +144,7 @@ local function BuildList(f)
   L(P.empty, "No builds yet. Press New.")
 
   local bNew = W.Button(f, "", 56, 22)
-  bNew:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 40)
+  bNew:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 68)
   L(bNew, "New")
   bNew:SetScript("OnClick", function()
     local b = AB.NewBuild(AB.CurrentClass())
@@ -199,7 +199,7 @@ local function BuildList(f)
     ASBuilderDB.tracker.mode = on and "always" or "run"
     if AB.RefreshTracker then AB.RefreshTracker() end
   end)
-  P.always:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 14, 72)
+  P.always:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 14, 100)
   L(P.always.text, "Show tracker outside runs")
 end
 
@@ -1330,7 +1330,7 @@ local function Create()
   band:SetHeight(30)
   local title = W.Text(f, "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -8)
-  title:SetText("|cff7fd4ffAS|rBuilder")
+  title:SetText("|cff7fd4ffAS|rBuilder |cff8a8a8av" .. AB.VERSION .. "|r")
   local sub = W.Text(f, "GameFontDisableSmall")
   sub:SetPoint("LEFT", title, "RIGHT", 8, -1)
   L(sub, "Build Planner")

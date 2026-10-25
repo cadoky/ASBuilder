@@ -2,7 +2,7 @@
 ## Title: |cff7fd4ffAS|rBuilder
 ## Notes: Build planner for Azeroth Survivors: plan spells and jewelry for every class, follow them in a small window while you play, share builds with a code.
 ## Author: Ulaş Çolaker
-## Version: 1.6.4
+## Version: 1.7.0
 ## SavedVariables: ASBuilderDB
 Data.lua
 Names.lua

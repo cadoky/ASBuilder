@@ -1,7 +1,5 @@
-Updated for game 0.111.0.
-
-- Star of Mystaria is a trinket now. If you had it as an amulet in a build, it moves to the trinkets on its own (if there's room).
-- The Legionlord's Medallion shows its new effects: +100% duration, -35% cooldown, +100% strength for Demonic Empowerment.
-- General fixes.
-
-Can't find Demonic Empowerment in the planner? It's been there since 1.6.1, so grab the latest version.
+- New "Export all builds" button: copies your whole profile as one code. Paste it on asbuilds.vercel.app to move all your builds to the website, or paste a profile code from the website into Import to bring them back.
+- Importing a profile merges it with what you have: new builds are added, the newer version of a build wins, and builds you deleted stay deleted.
+- Talent plans made on the website ride along in the code. The addon keeps them safe even though it doesn't show them.
+- The version number now shows next to the addon name.
+- Data refreshed from the latest game version.

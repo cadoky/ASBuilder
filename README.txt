@@ -55,6 +55,11 @@ PLANNER
     build without notes is around 350 characters), so they fit in a Discord message; notes
     add about 1.3 characters per letter. Older ASB1 codes, and codes made by 1.0 (into
     Early Game), still import.
+  - Export all builds (bottom left) makes one ASBP: code with every build, to paste on the
+    website; Import takes a build code or that profile code back. Every build carries a hidden
+    id and a save counter, so the newer copy wins and a deleted build is deleted on the other
+    side too. Talents written on the website are kept untouched. A profile code can run
+    past 20 KB, so it may need the file transfer on the website if the box refuses it.
 
 TRACKER (while you play) - three separate panels
   BUILD
