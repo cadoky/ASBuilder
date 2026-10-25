@@ -1,5 +1,3 @@
-- New "Export all builds" button: copies your whole profile as one code. Paste it on asbuilds.vercel.app to move all your builds to the website, or paste a profile code from the website into Import to bring them back.
-- Importing a profile merges it with what you have: new builds are added, the newer version of a build wins, and builds you deleted stay deleted.
-- Talent plans made on the website ride along in the code. The addon keeps them safe even though it doesn't show them.
-- The version number now shows next to the addon name.
-- Data refreshed from the latest game version.
+- New language option with 10 languages. Pick it from the Planner title bar menu.
+- Names, stat lines and the addon's own texts follow the chosen language. Where the game has its own translations I use those.
+- Removed the minimap button. Open the planner from the book button on the tracker or with /asb.
