@@ -29,8 +29,18 @@ local LINK_RARITY = { ffffffff = "Common", ff1eff00 = "Uncommon", ff0070dd = "Ra
 AB.SLOTS = { { 2, "amulet" }, { 11, "ring" }, { 12, "ring" }, { 13, "trinket" }, { 14, "trinket" } }
 
 -- ---------------------------------------------------------------- words
--- the addon's texts (English only); fills in %s and %d
+-- The addon's own texts are English; the names and stat lines the game also ships (Locale.lua)
+-- come in the chosen language. AB.N is for display only: pick keys and matching stay English.
+AB.LANGS = { { "en", "English" }, { "zh", "Chinese" }, { "es", "Español" }, { "fr", "Français" }, { "pt", "Português" },
+  { "ru", "Russian" }, { "de", "Deutsch" }, { "ja", "Japanese" }, { "tr", "Türkçe" }, { "ko", "Korean" } }
+function AB.N(s)
+  local t = ASBuilder_Loc[ASBuilderDB and ASBuilderDB.lang]
+  return t and t[s] or s
+end
+
+-- fills in %s and %d
 function AB.T(s, ...)
+  s = AB.N(s)
   if arg.n > 0 then return string.format(s, unpack(arg)) end
   return s
 end
@@ -210,17 +220,17 @@ function AB.FillTooltip(tt, cls, p)
     return false
   end
   if p.t == "spell" then
-    tt:SetText(info.name, 1, 0.82, 0)
+    tt:SetText(AB.N(info.name), 1, 0.82, 0)
     local c = AB.ClassInfo(cls)
-    tt:AddLine(c and c.name or cls, AB.ClassRGB(cls))
-    if d.amulet then tt:AddLine(T("Legendary amulet") .. ": " .. d.amulet, 1, 0.5, 0) end
+    tt:AddLine(c and AB.N(c.name) or cls, AB.ClassRGB(cls))
+    if d.amulet then tt:AddLine(T("Legendary amulet") .. ": " .. AB.N(d.amulet), 1, 0.5, 0) end
   elseif p.t == "ring" or p.t == "trinket" then
-    tt:SetText(info.name, 1, 1, 1)
+    tt:SetText(AB.N(info.name), 1, 1, 1)
     tt:AddLine(T(p.t == "ring" and "Ring" or "Trinket"), gray, gray, gray)
-    tt:AddLine(AB.StatText(d.stat), 0.12, 1, 0, 1)
+    tt:AddLine(AB.StatText(AB.N(d.stat)), 0.12, 1, 0, 1)
   elseif p.t == "amulet" then
     local c = AB.RARITY_COLOR[d.rarity] or AB.RARITY_COLOR.Common
-    tt:SetText(info.name, c[1], c[2], c[3])
+    tt:SetText(AB.N(info.name), c[1], c[2], c[3])
     tt:AddLine(T(d.rarity or "Common") .. " " .. T("amulet"), gray, gray, gray)
     local base = AB.AmuletStats(d.key)
     if base then
@@ -231,8 +241,8 @@ function AB.FillTooltip(tt, cls, p)
       tt:AddLine(T("Its stats show here once you have worn it."), 0.5, 0.5, 0.5, 1)
     end
   elseif p.t == "legend" then
-    tt:SetText(info.name, 1, 0.5, 0)
-    tt:AddLine((string.gsub(D.remakes or "Legendary amulet · remakes {spell}", "{spell}", d.name)), gray, gray, gray)
+    tt:SetText(AB.N(info.name), 1, 0.5, 0)
+    tt:AddLine((string.gsub(AB.N(D.remakes or "Legendary amulet · remakes {spell}"), "{spell}", AB.N(d.name))), gray, gray, gray)
     local fx = AB.LegendStats(cls, d.key)
     if LegendUses(info.name) == 1 and Seen() then
       tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
@@ -397,7 +407,8 @@ function AB.InitDB()
   if type(db.tracker) ~= "table" then db.tracker = {} end
   if db.tracker.mode == nil then db.tracker.mode = "run" end
   db.tracker.scale = db.tracker.scale or 1
-  if type(db.mm) ~= "table" then db.mm = { angle = 205 } end
+  db.mm = nil   -- the minimap button was removed
+  if not ASBuilder_Loc[db.lang] then db.lang = "en" end
   if type(db.run) ~= "table" then db.run = {} end
   -- brightness (%) while the game shows its cards; 0 = off
   db.light = db.light or 80
@@ -511,7 +522,7 @@ function AB.AddBuild(b)
   local db = ASBuilderDB
   b.id = db.nextId
   db.nextId = db.nextId + 1
-  b.name = UniqueName(b.name or T("New build"))
+  b.name = UniqueName(b.name or "New build")
   Upgrade(b)
   AB.EnsureUid(b)
   table.insert(db.builds, b)
@@ -519,7 +530,7 @@ function AB.AddBuild(b)
 end
 
 function AB.NewBuild(cls)
-  return AB.AddBuild({ class = cls, name = T("New build"), variants = AB.NewVariants(), fill = true })
+  return AB.AddBuild({ class = cls, name = "New build", variants = AB.NewVariants(), fill = true })
 end
 
 -- a full, separate copy of a build (the planner edits one of these until you press Save)
@@ -593,7 +604,7 @@ end
 function AB.CopyBuild(src)
   local c = AB.CloneBuild(src)
   c.id, c.uid, c.rev = nil, nil, 1   -- a copy is a build of its own
-  c.name = src.name .. " " .. T("(copy)")
+  c.name = src.name .. " " .. "(copy)"
   return AB.AddBuild(c)
 end
 
@@ -636,7 +647,7 @@ function AB.StageIssues(b, vi)
     local p = takes[keys[n]]
     local i = AB.FindPick(view, p.t, p.k)
     local info = AB.Info(b.class, p)
-    local name = info and info.name or p.k
+    local name = info and AB.N(info.name) or p.k
     if not i then
       table.insert(out, { text = T("%s is taken in %s and stays for the whole run, but this stage leaves it out.", name, from[keys[n]]), pick = p, kind = "drop" })
     elseif v.picks[i].ban then
@@ -647,7 +658,7 @@ function AB.StageIssues(b, vi)
     local p = v.picks[j]
     if p.t == "spell" and not p.ban and bans[p.k] then
       local info = AB.Info(b.class, p)
-      table.insert(out, { text = T("%s is banished in %s: its card never comes back that run.", info and info.name or p.k, bans[p.k]), pick = p, kind = "banned" })
+      table.insert(out, { text = T("%s is banished in %s: its card never comes back that run.", info and AB.N(info.name) or p.k, bans[p.k]), pick = p, kind = "banned" })
     end
   end
   return out
@@ -1777,7 +1788,7 @@ local function ReadBody(body)
     end
   end
   local b = { class = cls, fill = fill ~= 0, name = name, variants = AB.NewVariants() }
-  if b.name == "" then b.name = T("New build") end
+  if b.name == "" then b.name = "New build" end
   local nStages = r:Var()
   if not nStages then return nil, bad end
   local skipped = 0
@@ -1882,7 +1893,7 @@ function AB.Import(code)
   local cls = lines[2]
   if not AB.classIndex[cls or ""] then return nil, T("Unknown class in the code.") end
   local b = { class = cls, fill = lines[3] ~= "0", name = lines[4], variants = AB.NewVariants() }
-  if not b.name or b.name == "" then b.name = T("New build") end
+  if not b.name or b.name == "" then b.name = "New build" end
   local skipped = 0
   if version == "1" then
     if not lines[5] then return nil, bad end

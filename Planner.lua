@@ -25,6 +25,14 @@ local function L(obj, key)
   return obj
 end
 
+-- re-applies the static labels after the language changed
+function P.Relabel()
+  for i = 1, table.getn(labels) do
+    local o, key = labels[i][1], labels[i][2]
+    if o.SetLabel then o:SetLabel(T(key)) else o:SetText(T(key)) end
+  end
+end
+
 local function Err(msg)
   UIErrorsFrame:AddMessage(msg, 1, 0.3, 0.3, 1, 3)
 end
@@ -127,12 +135,12 @@ local function BuildList(f)
       if not b then return end
       local c = AB.ClassInfo(b.class)
       tt:SetText(b.name, AB.ClassRGB(b.class))
-      tt:AddLine(c and c.name or b.class, 0.7, 0.7, 0.7)
+      tt:AddLine(c and AB.N(c.name) or b.class, 0.7, 0.7, 0.7)
       if ASBuilderDB.active[b.class] == b.id then tt:AddLine(T("Active"), 0.35, 1, 0.35) end
       for vi = 1, table.getn(b.variants) do
         local v = b.variants[vi]
         local n = table.getn(v.picks)
-        if n > 0 then tt:AddLine(v.name .. ": " .. n .. " " .. T("picks"), 0.8, 0.8, 0.8) end
+        if n > 0 then tt:AddLine(AB.N(v.name) .. ": " .. n .. " " .. T("picks"), 0.8, 0.8, 0.8) end
       end
     end)
     P.rows[i] = r
@@ -333,7 +341,7 @@ local function Editor(f)
     end)
     W.Tip(cb, function(self, tt)
       local ci = AB.ClassInfo(self.classKey)
-      tt:SetText(ci.name, AB.ClassRGB(self.classKey))
+      tt:SetText(AB.N(ci.name), AB.ClassRGB(self.classKey))
     end)
     P.classBtns[i] = cb
   end
@@ -529,7 +537,7 @@ local function Priority(f)
     local b = Selected()
     local group = P.tab or "spell"
     tt:SetText(T("Clear"), 1, 0.82, 0)
-    tt:AddLine(T("Removes every pick of the %s tab from %s.", T(AB.GROUP_LABEL[group]), b and b.variant.name or ""), 0.8, 0.8, 0.8, 1)
+    tt:AddLine(T("Removes every pick of the %s tab from %s.", T(AB.GROUP_LABEL[group]), b and AB.N(b.variant.name) or ""), 0.8, 0.8, 0.8, 1)
     if group == "spell" then tt:AddLine(T("Spells marked to banish go too."), 0.6, 0.6, 0.6, 1) end
     tt:AddLine(T("Not saved until you press Save."), 0.6, 0.6, 0.6, 1)
   end)
@@ -749,7 +757,7 @@ local function RefreshPriority(b)
       r.pi = pi
       local info = AB.Info(b.class, p)
       r.icon.icon:SetTexture(AB.Icon(info and info.icon))
-      r.name:SetText(info and info.name or p.k)
+      r.name:SetText(info and AB.N(info.name) or p.k)
       local canAlt = AB.ALTS[AB.GROUP[p.t]] ~= nil
       r.name:SetWidth((p.t == "spell" or canAlt) and 86 or 128)
       if p.t == "spell" then
@@ -868,7 +876,7 @@ function P.StageBar(f)
       local d = Draft()
       local v = d and d.variants[self.vi]
       if not v then return end
-      tt:SetText(v.name, 1, 0.82, 0)
+      tt:SetText(AB.N(v.name), 1, 0.82, 0)
       tt:AddLine(T("Stage %d of %d", self.vi, table.getn(d.variants)), 0.7, 0.7, 0.7)
       tt:AddLine(table.getn(v.picks) .. " " .. T("picks"), 0.8, 0.8, 0.8)
       tt:AddLine(T("The tracker moves on to the next stage once every pick of this one reaches its target rank. Empty stages are skipped."), 0.6, 0.6, 0.6, 1)
@@ -959,7 +967,7 @@ function P.RefreshStages(d)
     local v = d.variants[i]
     local n = v and table.getn(v.picks) or 0
     local bad = table.getn(AB.StageIssues(d, i)) > 0
-    tb:SetLabel((bad and "|cffff5544!|r " or "") .. (v and v.name or "?") .. ((n > 0) and "" or " |cff666666-|r"))
+    tb:SetLabel((bad and "|cffff5544!|r " or "") .. (v and AB.N(v.name) or "?") .. ((n > 0) and "" or " |cff666666-|r"))
     tb:SetSelected(i == P.variant)
   end
   P.copyPrev:SetOn(P.variant > 1)
@@ -1001,7 +1009,7 @@ local function BottomBar(f)
     if not b then return end
     AB.SetActive(b)
     local c = AB.ClassInfo(b.class)
-    AB.Print(T("Active build for %s: %s", c and c.name or b.class, b.name))
+    AB.Print(T("Active build for %s: %s", c and AB.N(c.name) or b.class, b.name))
     Changed()
   end)
   W.Tip(P.useBtn, function(self, tt)
@@ -1277,6 +1285,60 @@ function P.FontMenu(f, close)
   return fb
 end
 
+-- ---------------------------------------------------------------- the language of the game's names
+-- a button in the title band; the addon's texts show in the chosen language
+function P.LangMenu(f, anchor)
+  local lb = W.Button(f, "", 110, 18)
+  lb:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
+  local lm = CreateFrame("Frame", nil, f)
+  lm:SetFrameStrata("DIALOG")
+  lm:SetWidth(110)
+  lm:SetHeight(table.getn(AB.LANGS) * 18 + 6)
+  lm:SetPoint("TOPRIGHT", lb, "BOTTOMRIGHT", 0, -2)
+  W.Panel(lm, 0.97, 0.35)
+  lm:EnableMouse(true)
+  lm:Hide()
+  lm.rows = {}
+  local function Label()
+    for i = 1, table.getn(AB.LANGS) do
+      if AB.LANGS[i][1] == ASBuilderDB.lang then lb:SetLabel(T("Language: %s", AB.LANGS[i][2])) end
+    end
+  end
+  for i = 1, table.getn(AB.LANGS) do
+    local r = CreateFrame("Button", nil, lm)
+    r:SetWidth(104)
+    r:SetHeight(18)
+    r:SetPoint("TOPLEFT", lm, "TOPLEFT", 3, -3 - (i - 1) * 18)
+    W.Hover(r, 0.1)
+    r.key = AB.LANGS[i][1]
+    r.text = W.Text(r, "GameFontHighlightSmall")
+    r.text:SetPoint("LEFT", r, "LEFT", 6, 0)
+    r.text:SetText(AB.LANGS[i][2])
+    r:SetScript("OnClick", function()
+      lm:Hide()
+      ASBuilderDB.lang = this.key
+      P.Relabel()
+      Label()
+      P.Refresh()
+      if AB.RefreshTracker then AB.RefreshTracker() end
+    end)
+    lm.rows[i] = r
+  end
+  lm:SetScript("OnShow", function()
+    for i = 1, table.getn(lm.rows) do
+      local r = lm.rows[i]
+      if r.key == ASBuilderDB.lang then r.text:SetTextColor(0.35, 1, 0.35) else r.text:SetTextColor(1, 1, 1) end
+    end
+  end)
+  lb:SetScript("OnClick", function() if lm:IsVisible() then lm:Hide() else lm:Show() end end)
+  W.Tip(lb, function(self, tt)
+    tt:SetText(T("Language"), 1, 0.82, 0)
+    tt:AddLine(T("The language of the planner and the tracker. Names the game also has use its own translations."), 0.8, 0.8, 0.8, 1)
+  end)
+  Label()
+  return lb
+end
+
 -- ---------------------------------------------------------------- brightness on the card screen
 -- one button: each click steps Off, 60% ... 100%
 local LIGHT_STEPS = { 0, 60, 70, 80, 90, 100 }
@@ -1338,7 +1400,7 @@ local function Create()
   close.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -5)
   close:SetScript("OnClick", function() f:Hide() end)
-  P.LightButton(f, P.FontMenu(f, close))
+  P.LightButton(f, P.LangMenu(f, P.FontMenu(f, close)))
 
   -- thin dividers between the three columns
   for _, x in ipairs({ 194, 506, 814 }) do
@@ -1417,8 +1479,8 @@ function P.Refresh()
   if P.stageEdit:GetText() ~= b.variant.name and not P.stageFocus then P.stageEdit:SetText(b.variant.name) end
   P.filling = false
   P.RefreshStages(d)
-  P.notesLabel:SetText(T("Notes") .. "  |cff888888(" .. b.variant.name .. ")|r")
-  P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", b.variant.name)
+  P.notesLabel:SetText(T("Notes") .. "  |cff888888(" .. AB.N(b.variant.name) .. ")|r")
+  P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", AB.N(b.variant.name))
     .. (AB.NowStats() and "" or ("\n" .. T("Now: open your character window (C) in a run once."))))
   P.RefreshNow()
   for i = 1, table.getn(P.classBtns) do
@@ -1428,7 +1490,7 @@ function P.Refresh()
     cb:SetDim(not on)
   end
   local ci = AB.ClassInfo(b.class)
-  P.className:SetText(ci and ci.name or "")
+  P.className:SetText(ci and AB.N(ci.name) or "")
   P.className:SetTextColor(AB.ClassRGB(b.class))
   P.fill:SetChecked(d.fill ~= false)
   local saved = Saved()
@@ -1482,67 +1544,3 @@ StaticPopupDialogs["ASBUILDER_DELETE"] = {
   whileDead = 1,
   hideOnEscape = 1,
 }
-
--- ---------------------------------------------------------------- minimap button
-local mm
-local function PlaceMinimap()
-  local a = math.rad(ASBuilderDB.mm.angle or 205)
-  mm:ClearAllPoints()
-  mm:SetPoint("CENTER", Minimap, "CENTER", 80 * math.cos(a), 80 * math.sin(a))
-end
-
-local function MinimapButton()
-  if mm or not Minimap then return end
-  mm = CreateFrame("Button", "ASBuilderMinimapButton", Minimap)
-  mm:SetWidth(31)
-  mm:SetHeight(31)
-  mm:SetFrameStrata("MEDIUM")
-  mm:SetFrameLevel(8)
-  local icon = mm:CreateTexture(nil, "BACKGROUND")
-  icon:SetTexture("Interface\\Icons\\INV_Misc_Book_11")
-  icon:SetWidth(20)
-  icon:SetHeight(20)
-  icon:SetPoint("CENTER", mm, "CENTER", 0, 1)
-  icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-  local border = mm:CreateTexture(nil, "OVERLAY")
-  border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-  border:SetWidth(53)
-  border:SetHeight(53)
-  border:SetPoint("TOPLEFT", mm, "TOPLEFT", 0, 0)
-  mm:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-  mm:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-  mm:RegisterForDrag("LeftButton")
-  mm:SetScript("OnClick", function()
-    if arg1 == "RightButton" then
-      local db = ASBuilderDB.tracker
-      db.mode = (db.mode == "hidden") and "run" or "hidden"
-      if AB.RefreshTracker then AB.RefreshTracker() end
-      AB.Print(T(db.mode == "hidden" and "Tracker: hidden." or "Tracker: shown in runs."))
-    else
-      AB.TogglePlanner()
-    end
-  end)
-  mm:SetScript("OnDragStart", function()
-    this:SetScript("OnUpdate", function()
-      local mx, my = Minimap:GetCenter()
-      local px, py = GetCursorPosition()
-      local s = Minimap:GetEffectiveScale()
-      ASBuilderDB.mm.angle = math.deg(math.atan2(py / s - my, px / s - mx))
-      PlaceMinimap()
-    end)
-  end)
-  mm:SetScript("OnDragStop", function() this:SetScript("OnUpdate", nil) end)
-  W.Tip(mm, function(self, tt)
-    tt:SetText("|cff7fd4ffAS|rBuilder")
-    tt:AddLine(T("Left-click: planner  ·  Right-click: tracker on/off"), 0.8, 0.8, 0.8)
-    tt:AddLine(T("Drag: move this button"), 0.6, 0.6, 0.6)
-  end)
-  PlaceMinimap()
-end
-
--- ---------------------------------------------------------------- start-up
-local prevReady = AB.OnReady
-AB.OnReady = function()
-  if prevReady then prevReady() end
-  MinimapButton()
-end

@@ -6,6 +6,7 @@
 ## SavedVariables: ASBuilderDB
 Data.lua
 Names.lua
+Locale.lua
 Stats.lua
 Defaults.lua
 Core.lua

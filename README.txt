@@ -7,7 +7,7 @@ INSTALL
   The addon loads at the next world entry.
 
 COMMANDS
-  /asb               open or close the planner (the minimap button does the same)
+  /asb               open or close the planner (the tracker's book button does the same)
   /asb tracker       tracker: in runs / always / hidden
   /asb lock          lock or unlock the tracker
   /asb scale 0.9     tracker size

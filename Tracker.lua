@@ -259,7 +259,7 @@ local function Create()
       tt:SetText(b.name, AB.ClassRGB(b.class))
       local v = TR.view and TR.view.variant
       if v then
-        tt:AddLine(v.name, 0.6, 0.8, 1)
+        tt:AddLine(AB.N(v.name), 0.6, 0.8, 1)
         if v.notes and v.notes ~= "" then tt:AddLine(v.notes, 1, 0.82, 0, 1) end
       end
       tt:AddLine(" ")
@@ -311,7 +311,7 @@ local function Create()
   end)
   W.Tip(st, function(self, tt)
     local v = TR.view and TR.view.variant
-    tt:SetText(v and v.name or "", 0.6, 0.8, 1)
+    tt:SetText(v and AB.N(v.name) or "", 0.6, 0.8, 1)
     if v and v.notes and v.notes ~= "" then tt:AddLine(v.notes, 1, 0.82, 0, 1) end
     tt:AddLine(" ")
     tt:AddLine(T("Moves on by itself when every pick of this stage reaches its target rank, and to the last stage when the run goes endless."), 0.7, 0.7, 0.7, 1)
@@ -400,7 +400,7 @@ local function SetNext(n, label, row, msg, lit)
   n.data = row
   if row then
     n:SetIcon(row.info and row.info.icon or "INV_Misc_QuestionMark")
-    local name = row.info and row.info.name or row.pick.k
+    local name = row.info and AB.N(row.info.name) or row.pick.k
     if row.owned then
       local now
       if row.pick.t == "spell" then
@@ -460,7 +460,7 @@ local function FillBuild(b, ev, live, stage, pinned)
     if has then
       SetNext(f.nextS, "", nil, "|cff999999" .. T("Click the name above to choose one") .. "|r")
     else
-      SetNext(f.nextS, "", nil, "|cff999999" .. T("No %s builds yet: make one in the planner", c and c.name or cls) .. "|r")
+      SetNext(f.nextS, "", nil, "|cff999999" .. T("No %s builds yet: make one in the planner", c and AB.N(c.name) or cls) .. "|r")
     end
     return y + 22
   end
@@ -479,7 +479,7 @@ local function FillBuild(b, ev, live, stage, pinned)
   if stages > 1 then
     Place(f.stage, pb, y)
     f.stage.label:SetText(T("Stage:"))
-    f.stage.text:SetText(b.variants[stage].name .. (pinned and ("  |cff888888(" .. T("by hand") .. ")|r") or ""))
+    f.stage.text:SetText(AB.N(b.variants[stage].name) .. (pinned and ("  |cff888888(" .. T("by hand") .. ")|r") or ""))
     f.stage.count:SetText(stage .. "/" .. table.getn(b.variants))
     f.stage:Show()
     y = y + 17
@@ -579,7 +579,7 @@ local function FillSpells(b, ev, live)
     Place(r, ps, y)
     y = y + ROW_H
     r.icon:SetTexture(AB.Icon((e.info and e.info.icon) or e.icon))
-    r.name:SetText(e.info and e.info.name or e.pick.k)
+    r.name:SetText(e.info and AB.N(e.info.name) or e.pick.k)
     r.strike:Hide()
     r.bg:SetVertexColor(1, 1, 1, 0)
     r:SetAlpha(1)
@@ -689,7 +689,7 @@ local function FillJewelry(b, ev, live)
       y = y + ROW_H
       r.data = d
       local info = d.pick and AB.Info(cls, d.pick)
-      local name = (info and info.name) or (d.worn and d.worn.name) or "?"
+      local name = (info and AB.N(info.name)) or (d.worn and d.worn.name) or "?"
       if d.worn then
         -- worn: name in its rarity, rank, and what it gives right now
         r.icon:SetTexture(info and AB.Icon(info.icon) or d.worn.tex or AB.Icon(nil))
@@ -822,7 +822,7 @@ function TR.TogglePicker()
   end
   if table.getn(items) == 0 then
     local c = AB.ClassInfo(cls)
-    table.insert(items, { action = "planner", icon = "INV_Misc_Book_11", text = T("No %s builds yet: open the planner", c and c.name or cls), r = 0.7, g = 0.7, bl = 0.7 })
+    table.insert(items, { action = "planner", icon = "INV_Misc_Book_11", text = T("No %s builds yet: open the planner", c and AB.N(c.name) or cls), r = 0.7, g = 0.7, bl = 0.7 })
   else
     if table.getn(items) > MENU_ROWS - 2 then
       for i = table.getn(items), MENU_ROWS - 1, -1 do table.remove(items, i) end
@@ -943,7 +943,7 @@ local function FillChoice(p, ev, isSpell, slotsFull)
     c.glow:SetHeight(size * 1.9)
     c.glow:SetVertexColor(e.glow[1], e.glow[2], e.glow[3])
     c.name:SetWidth(size + CHOICE_GAP)
-    c.name:SetText(e.info and e.info.name or e.pick.k)
+    c.name:SetText(e.info and AB.N(e.info.name) or e.pick.k)
     -- only amulets have a fixed rarity; spells, rings and trinkets get theirs on the card
     local rarity = e.pick.t == "legend" and "Legendary" or (e.info and e.info.rarity)
     c.name:SetTextColor(RarityRGB(rarity))

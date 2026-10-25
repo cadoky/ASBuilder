@@ -23,7 +23,7 @@ Plan a build for any class before the run, then let a small window tell you what
 2. Put the `ASBuilder` folder into `benilla-config/AddOns/`.
 3. Restart the game.
 
-Type `/asb` or click the minimap button to open the planner. See `README.txt` for all commands and details.
+Type `/asb` or click the book button on the tracker to open the planner. See `README.txt` for all commands and details.
 
 ## After a game update
 
