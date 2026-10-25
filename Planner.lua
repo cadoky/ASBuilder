@@ -185,6 +185,16 @@ local function BuildList(f)
   L(bImp, "Import")
   bImp:SetScript("OnClick", function() P.ShowCode("import") end)
 
+  -- every build in one code, for the website (and back)
+  local bAll = W.Button(f, "", 176, 22)
+  bAll:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 40)
+  L(bAll, "Export all builds")
+  bAll:SetScript("OnClick", function() P.ShowCode("export", AB.ExportProfile()) end)
+  W.Tip(bAll, function(self, tt)
+    tt:SetText(T("Export all builds"), 1, 0.82, 0)
+    tt:AddLine(T("One code with every build, to paste on the website. Import takes the website's code back."), 0.8, 0.8, 0.8, 1)
+  end)
+
   P.always = W.Check(f, "", function(on)
     ASBuilderDB.tracker.mode = on and "always" or "run"
     if AB.RefreshTracker then AB.RefreshTracker() end
@@ -1125,7 +1135,7 @@ local function CodeDialog()
   d.hint:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -28)
   d.hint:SetWidth(416)
 
-  d.box = W.MultiEdit(d, "ASBuilderCodeEdit", 416, 130, 24000)
+  d.box = W.MultiEdit(d, "ASBuilderCodeEdit", 416, 130, 400000)   -- a whole profile code can run past 20 KB
   d.box:SetPoint("TOPLEFT", d, "TOPLEFT", 12, -46)
   d.box.edit:SetScript("OnTextChanged", function()
     d.box.scroll:UpdateScrollChildRect()
@@ -1144,7 +1154,23 @@ local function CodeDialog()
       d.box.edit:HighlightText()
       return
     end
-    local b, info = AB.Import(d.box.edit:GetText())
+    local text = d.box.edit:GetText()
+    if string.find(text, "^%s*ASBP:") then
+      local res, why = AB.ImportProfile(text)
+      if not res then
+        d.hint:SetText("|cffff5555" .. why .. "|r")
+        return
+      end
+      -- builds may have changed or gone: drop the open draft and pick again
+      P.draft = nil
+      if not AB.GetBuild(P.selected) then P.selected = nil end
+      AB.Print(T("Profile imported: %d new, %d updated, %d deleted, %d unchanged.", res.added, res.updated, res.deleted, res.kept))
+      if res.skipped > 0 then AB.Print(T("%d unknown entries were skipped.", res.skipped)) end
+      d:Hide()
+      Changed()
+      return
+    end
+    local b, info = AB.Import(text)
     if not b then
       d.hint:SetText("|cffff5555" .. info .. "|r")
       return
@@ -1180,7 +1206,7 @@ function P.ShowCode(mode, text)
     code.box.edit:HighlightText()
   else
     code.title:SetText(T("Import"))
-    code.hint:SetText(T("Paste a build code (Ctrl+V), then press Import."))
+    code.hint:SetText(T("Paste a build code or a whole-profile code (Ctrl+V), then press Import."))
     code.action:SetLabel(T("Import"))
     code:Show()
     code.box.edit:SetText("")

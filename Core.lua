@@ -342,6 +342,10 @@ local function Upgrade(b)
     elseif byStage[1] and byStage[1].t then b.stash[cls] = { [1] = byStage } end
   end
   if b.fill == nil then b.fill = true end
+  -- rev counts saves, to tell which copy of a build is newer when profiles travel between the
+  -- game and the website; talent holds what the website writes (the addon only keeps it)
+  if type(b.rev) ~= "number" or b.rev < 1 then b.rev = 1 end
+  if type(b.talent) ~= "string" then b.talent = "" end
 end
 
 -- The builds that come with the addon (Defaults.lua). Each is added once, by its key, and
@@ -387,6 +391,7 @@ function AB.InitDB()
   if type(ASBuilderDB) ~= "table" then ASBuilderDB = {} end
   local db = ASBuilderDB
   if type(db.builds) ~= "table" then db.builds = {} end
+  if type(db.tomb) ~= "table" then db.tomb = {} end   -- deleted builds: uid = rev, for the profile code
   if type(db.active) ~= "table" then db.active = {} end
   db.nextId = db.nextId or 1
   if type(db.tracker) ~= "table" then db.tracker = {} end
@@ -426,6 +431,7 @@ function AB.InitDB()
       end
     end
     if b.id and b.id >= db.nextId then db.nextId = b.id + 1 end
+    AB.EnsureUid(b)
     -- jewelry targets used to be ranks; they are values now (what the piece gives)
     if (db.dataVersion or 1) < 2 then
       for vi = 1, table.getn(b.variants) do AB.ClearJewelTargets(b.variants[vi].picks) end
@@ -454,6 +460,34 @@ function AB.GetBuild(id)
   return nil
 end
 
+-- Every build has a uid that stays the same everywhere (in the game and on the website), 8
+-- characters of a-z0-9; the numeric id is only this game's own handle.
+function AB.GetBuildByUid(uid)
+  if not uid then return nil end
+  local list = ASBuilderDB.builds
+  for i = 1, table.getn(list) do
+    if list[i].uid == uid then return list[i], i end
+  end
+  return nil
+end
+
+local uidCount = 0
+function AB.EnsureUid(b)
+  local twin = AB.GetBuildByUid(b.uid)
+  if type(b.uid) == "string" and b.uid ~= "" and (not twin or twin == b) then return b.uid end
+  local chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+  while true do
+    uidCount = uidCount + 1
+    math.randomseed(math.floor(GetTime() * 1000) + uidCount * 7919 + (time and time() or 0))
+    local s = ""
+    for i = 1, 8 do
+      local n = math.random(1, 36)
+      s = s .. string.sub(chars, n, n)
+    end
+    if not AB.GetBuildByUid(s) then b.uid = s; return s end
+  end
+end
+
 function AB.BuildsFor(cls)
   local out, list = {}, ASBuilderDB.builds
   for i = 1, table.getn(list) do
@@ -479,6 +513,7 @@ function AB.AddBuild(b)
   db.nextId = db.nextId + 1
   b.name = UniqueName(b.name or T("New build"))
   Upgrade(b)
+  AB.EnsureUid(b)
   table.insert(db.builds, b)
   return b
 end
@@ -489,7 +524,7 @@ end
 
 -- a full, separate copy of a build (the planner edits one of these until you press Save)
 function AB.CloneBuild(b)
-  return { id = b.id, class = b.class, name = b.name, fill = b.fill, link = b.link or "",
+  return { id = b.id, uid = b.uid, rev = b.rev, talent = b.talent, class = b.class, name = b.name, fill = b.fill, link = b.link or "",
     variants = CopyVariants(b.variants), stash = CopyStash(b.stash) }
 end
 
@@ -544,6 +579,8 @@ function AB.SaveDraft(draft)
     end
     if not AB.ActiveBuild(draft.class) then db.active[draft.class] = saved.id end
   end
+  if AB.Serialize(draft) ~= AB.Serialize(saved) then saved.rev = (saved.rev or 1) + 1 end
+  saved.talent = draft.talent or saved.talent or ""
   saved.class = draft.class
   saved.name = draft.name
   saved.fill = draft.fill
@@ -555,7 +592,7 @@ end
 
 function AB.CopyBuild(src)
   local c = AB.CloneBuild(src)
-  c.id = nil
+  c.id, c.uid, c.rev = nil, nil, 1   -- a copy is a build of its own
   c.name = src.name .. " " .. T("(copy)")
   return AB.AddBuild(c)
 end
@@ -658,6 +695,7 @@ end
 function AB.DeleteBuild(id)
   local b, i = AB.GetBuild(id)
   if not b then return end
+  if b.uid then ASBuilderDB.tomb[b.uid] = (b.rev or 1) + 1 end   -- the profile code tells the website
   table.remove(ASBuilderDB.builds, i)
   if ASBuilderDB.active[b.class] == id then
     local rest = AB.BuildsFor(b.class)
@@ -1659,7 +1697,8 @@ local function ReadExtra(b, s, placed)
   end
 end
 
-function AB.Export(b)
+-- the bytes of a build (what an ASB2 code holds, and what a profile code holds for each build)
+local function BuildBody(b)
   local out = { string.char(4) }
   PutStr(out, b.class)
   table.insert(out, string.char((b.fill == false) and 0 or 1))
@@ -1704,15 +1743,17 @@ function AB.Export(b)
   local extra = ExtraString(b, index)
   if (b.link and b.link ~= "") or extra ~= "" then PutStr(out, b.link or "") end
   if extra ~= "" then PutStr(out, extra) end
-  local data = Enc(table.concat(out))
+  return table.concat(out)
+end
+
+function AB.Export(b)
+  local data = Enc(BuildBody(b))
   return "ASB2:" .. Sum2(data) .. data
 end
 
--- reads an ASB2 code into a build; returns the build and how many picks were skipped
-local function ImportV4(data)
+-- reads a build's bytes into a build; returns the build and how many picks were skipped
+local function ReadBody(body)
   local bad = T("The code is damaged or incomplete.")
-  local body = Dec(data)
-  if not body then return nil, bad end
   local r = Reader(body)
   if r:Var() ~= 4 then return nil, bad end
   local cls = r:Str()
@@ -1777,6 +1818,13 @@ local function ImportV4(data)
   local extra = r:Str()
   if extra then ReadExtra(b, extra, placed) end
   return b, skipped
+end
+
+-- reads an ASB2 code's data (the part after the checksum)
+local function ImportV4(data)
+  local body = Dec(data)
+  if not body then return nil, T("The code is damaged or incomplete.") end
+  return ReadBody(body)
 end
 
 -- Version 3 (2 with value targets for jewelry): the class, the setting, the name and every stage (name, picks, notes).
@@ -1862,6 +1910,105 @@ function AB.Import(code)
     for i = 1, table.getn(b.variants) do AB.ClearJewelTargets(b.variants[i].picks) end
   end
   return b, skipped
+end
+
+-- ---- whole profile (ASBP): every build, each with its uid and rev, then a marker for every
+-- build deleted here. A build is written as its ASB2 bytes plus the website's talent text
+-- (kept as it is). The website decides conflicts with you; the game keeps the newer rev.
+function AB.ExportProfile()
+  local db = ASBuilderDB
+  local out = { string.char(5) }
+  local list, dead = db.builds, {}
+  for uid, rev in pairs(db.tomb) do
+    if not AB.GetBuildByUid(uid) then table.insert(dead, { uid = uid, rev = rev }) end
+  end
+  table.sort(dead, function(a, b) return a.uid < b.uid end)
+  PutVar(out, table.getn(list) + table.getn(dead))
+  for i = 1, table.getn(list) do
+    local b = list[i]
+    PutStr(out, b.uid)
+    PutVar(out, b.rev or 1)
+    table.insert(out, string.char(0))
+    PutStr(out, BuildBody(b))
+    PutStr(out, b.talent or "")
+  end
+  for i = 1, table.getn(dead) do
+    PutStr(out, dead[i].uid)
+    PutVar(out, dead[i].rev)
+    table.insert(out, string.char(1))
+  end
+  local data = Enc(table.concat(out))
+  return "ASBP:" .. Sum2(data) .. data
+end
+
+-- Reads a profile code and applies it: a build that is new comes in, one with a newer rev
+-- replaces ours, a delete marker removes a build that is not newer than it. Returns a table of
+-- counts { added, updated, deleted, kept, skipped }, or nil and the reason.
+function AB.ImportProfile(code)
+  local bad = T("The code is damaged or incomplete.")
+  code = string.gsub(code or "", "%s", "")
+  local _, _, sum, data = string.find(code, "^ASBP:(..)(.+)$")
+  if not data then return nil, T("This is not an ASBuilder profile code.") end
+  if Sum2(data) ~= sum then return nil, bad end
+  local body = Dec(data)
+  if not body then return nil, bad end
+  local r = Reader(body)
+  if r:Var() ~= 5 then return nil, bad end
+  local n = r:Var()
+  if not n or n > 300 then return nil, bad end
+  local entries = {}
+  for i = 1, n do
+    local uid, rev, flag = r:Str(), r:Var(), r:Byte()
+    if not uid or uid == "" or not rev or not flag then return nil, bad end
+    if flag == 1 then
+      table.insert(entries, { uid = uid, rev = rev, dead = true })
+    else
+      local raw, talent = r:Str(), r:Str()
+      if not raw or not talent then return nil, bad end
+      local b, skipped = ReadBody(raw)
+      if not b then return nil, skipped end
+      b.uid, b.rev, b.talent = uid, rev, talent
+      table.insert(entries, { uid = uid, rev = rev, build = b, skipped = skipped })
+    end
+  end
+  -- the whole code read fine: now change the builds
+  local tomb = ASBuilderDB.tomb
+  local res = { added = 0, updated = 0, deleted = 0, kept = 0, skipped = 0 }
+  for i = 1, table.getn(entries) do
+    local e = entries[i]
+    local cur = AB.GetBuildByUid(e.uid)
+    if e.dead then
+      if cur and e.rev >= (cur.rev or 1) then
+        AB.DeleteBuild(cur.id)
+        if (tomb[e.uid] or 0) < e.rev then tomb[e.uid] = e.rev end
+        res.deleted = res.deleted + 1
+      elseif cur then
+        res.kept = res.kept + 1
+      end
+    else
+      local b = e.build
+      res.skipped = res.skipped + (e.skipped or 0)
+      if cur then
+        if e.rev > (cur.rev or 1) then
+          local draft = AB.CloneBuild(cur)
+          draft.class, draft.name, draft.fill, draft.link = b.class, b.name, b.fill, b.link
+          draft.variants, draft.talent = b.variants, b.talent
+          AB.SaveDraft(draft)
+          cur.rev, cur.talent = e.rev, b.talent
+          res.updated = res.updated + 1
+        else
+          res.kept = res.kept + 1
+        end
+      elseif tomb[e.uid] and tomb[e.uid] >= e.rev then
+        res.kept = res.kept + 1   -- deleted here after that version
+      else
+        AB.AddBuild(b)
+        tomb[e.uid] = nil
+        res.added = res.added + 1
+      end
+    end
+  end
+  return res
 end
 
 -- Everything the hero has in this run as a new build: the class's spells and the worn
