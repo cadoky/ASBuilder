@@ -122,14 +122,40 @@ function W.Hover(b, a)
   return h
 end
 
+-- The addon's own tooltip frame: the game's GameTooltip is parked bottom right whatever
+-- anchor it gets, a tooltip of our own can sit next to the mouse.
+local tip
+function W.Tooltip()
+  if not tip then
+    tip = CreateFrame("GameTooltip", "ASBuilderTip", UIParent, "GameTooltipTemplate")
+    tip:SetFrameStrata("TOOLTIP")
+  end
+  return tip
+end
+
+-- owns the tooltip and puts it next to the mouse; flips to the other side near the screen edges
+function W.TipOwner(owner)
+  local tt = W.Tooltip()
+  tt:SetOwner(owner, "ANCHOR_NONE")
+  local s = UIParent:GetEffectiveScale()
+  local x, y = GetCursorPosition()
+  x, y = x / s, y / s
+  local left = x > UIParent:GetWidth() - 320
+  local below = y > UIParent:GetHeight() - 220
+  tt:ClearAllPoints()
+  tt:SetPoint((below and "TOP" or "BOTTOM") .. (left and "RIGHT" or "LEFT"), UIParent, "BOTTOMLEFT",
+    x + (left and -14 or 14), y + (below and -14 or 14))
+  return tt
+end
+
 function W.Tip(owner, fn)
   owner:SetScript("OnEnter", function()
-    GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-    fn(this, GameTooltip)
+    local tt = W.TipOwner(this)
+    fn(this, tt)
     -- nothing to say: no empty box
-    if GameTooltip.NumLines and (GameTooltip:NumLines() or 0) == 0 then GameTooltip:Hide() else GameTooltip:Show() end
+    if tt.NumLines and (tt:NumLines() or 0) == 0 then tt:Hide() else tt:Show() end
   end)
-  owner:SetScript("OnLeave", function() GameTooltip:Hide() end)
+  owner:SetScript("OnLeave", function() W.Tooltip():Hide() end)
 end
 
 -- a flat button with a label

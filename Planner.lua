@@ -377,10 +377,11 @@ local function Editor(f)
         -- show the tab of what was just changed
         P.tab = AB.GROUP[self.pick.t]
         Changed()
-        if self:IsVisible() and GameTooltip.IsOwned and GameTooltip:IsOwned(self) then
-          GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-          P.PaletteTip(self, GameTooltip)
-          GameTooltip:Show()
+        local tt = W.Tooltip()
+        if self:IsVisible() and tt.IsOwned and tt:IsOwned(self) then
+          W.TipOwner(self)
+          P.PaletteTip(self, tt)
+          tt:Show()
         end
       end)
       W.Tip(sl, function(self, tt) P.PaletteTip(self, tt) end)

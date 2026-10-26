@@ -1,3 +1,3 @@
-- New language option with 10 languages. Pick it from the Planner title bar menu.
-- Names, stat lines and the addon's own texts follow the chosen language. Where the game has its own translations I use those.
-- Removed the minimap button. Open the planner from the book button on the tracker or with /asb.
+- Hovering a spell now shows what it does, the same texts as on the website, plus what its legendary amulet adds.
+- Tooltips open next to the mouse now, instead of the bottom right corner.
+- A spell you take in an earlier stage can now be banished in a later one, as long as you have a banish slot free. The red warning is gone.

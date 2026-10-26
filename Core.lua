@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.8.0"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.8.1"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -224,6 +224,15 @@ function AB.FillTooltip(tt, cls, p)
     local c = AB.ClassInfo(cls)
     tt:AddLine(c and AB.N(c.name) or cls, AB.ClassRGB(cls))
     if d.amulet then tt:AddLine(T("Legendary amulet") .. ": " .. AB.N(d.amulet), 1, 0.5, 0) end
+    local st = ASBuilder_SpellTexts
+    local txt = st and st[cls] and st[cls][d.key]
+    if txt then
+      for i = 1, table.getn(txt) do tt:AddLine(AB.N(txt[i]), 0.12, 1, 0, 1) end
+    end
+    local fx = AB.LegendStats(cls, d.key)
+    if fx then
+      for i = 1, table.getn(fx) do tt:AddLine(fx[i], 0.12, 1, 0, 1) end
+    end
   elseif p.t == "ring" or p.t == "trinket" then
     tt:SetText(AB.N(info.name), 1, 1, 1)
     tt:AddLine(T(p.t == "ring" and "Ring" or "Trinket"), gray, gray, gray)
@@ -611,7 +620,8 @@ end
 -- ---------------------------------------------------------------- stage checks
 -- In a run, a spell, ring or trinket once taken stays to the end; only the amulet can be
 -- swapped, and a banished card never comes back. So each stage must keep what the stages
--- before it take, and may not take a spell an earlier stage banishes.
+-- before it take (unless banished, which the banish limit allows), and may not take a spell
+-- an earlier stage banishes.
 local KEEPS = { spell = true, ring = true, trinket = true }
 
 -- what the stages before vi (those with picks) take and banish
@@ -624,6 +634,7 @@ local function Earlier(b, vi)
       local key = p.t .. ":" .. p.k
       if p.ban then
         bans[p.k] = bans[p.k] or v.name
+        takes[p.t .. ":" .. p.k] = nil   -- banished (the stage's banish limit already applies), no longer kept
       elseif KEEPS[p.t] and not p.alt and not takes[key] then
         takes[key] = p
         from[key] = v.name
@@ -650,8 +661,6 @@ function AB.StageIssues(b, vi)
     local name = info and AB.N(info.name) or p.k
     if not i then
       table.insert(out, { text = T("%s is taken in %s and stays for the whole run, but this stage leaves it out.", name, from[keys[n]]), pick = p, kind = "drop" })
-    elseif v.picks[i].ban then
-      table.insert(out, { text = T("%s is taken in %s: it cannot be banished later.", name, from[keys[n]]), pick = p, kind = "drop" })
     end
   end
   for j = 1, table.getn(v.picks) do
@@ -683,8 +692,6 @@ function AB.FixStage(b, vi)
     if is.kind == "drop" then
       local p = is.pick
       local i = AB.FindPick(view, p.t, p.k)
-      local group = AB.GROUP[p.t]
-      if i and view.picks[i].ban then table.remove(view.picks, i) end
       local np = { t = p.t, k = p.k, r = p.r or 0, r2 = p.r2 }
       if AB.Fit(view, np) then
         table.insert(view.picks, np)
