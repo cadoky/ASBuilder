@@ -1363,6 +1363,7 @@ function P.LightButton(f, anchor)
     tt:AddLine(T("While the level-up, lair or cache cards are shown, the game's brightness goes up to this value, then back to your own setting. Click to change."), 0.8, 0.8, 0.8, 1)
   end)
   Label()
+  return b
 end
 
 -- ---------------------------------------------------------------- the window
@@ -1401,7 +1402,10 @@ local function Create()
   close.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -5)
   close:SetScript("OnClick", function() f:Hide() end)
-  P.LightButton(f, P.LangMenu(f, P.FontMenu(f, close)))
+  local light = P.LightButton(f, P.LangMenu(f, P.FontMenu(f, close)))
+  local more = W.Text(f, "GameFontNormalSmall")
+  more:SetPoint("RIGHT", light, "LEFT", -12, 0)
+  more:SetText("Find more build: asbuilder.app")
 
   -- thin dividers between the three columns
   for _, x in ipairs({ 194, 506, 814 }) do

@@ -1,3 +1,3 @@
-- Hovering a spell now shows what it does, the same texts as on the website, plus what its legendary amulet adds.
-- Tooltips open next to the mouse now, instead of the bottom right corner.
-- A spell you take in an earlier stage can now be banished in a later one, as long as you have a banish slot free. The red warning is gone.
+- The "Build jewelry" box on the card screen is now split into Rings, Trinkets and Amulets, each with its own title and a glowing line between them.
+- The names under the icons on the card screen are smaller and bolder, sit a bit lower, and long names wrap instead of being cut off with "...".
+- Added "Find more build: asbuilder.app" to the top bar of the planner.

@@ -889,15 +889,36 @@ local function ChoiceBox(title, point, x)
     c.glow:SetPoint("CENTER", c, "CENTER", 0, 0)
     -- the name under the icon: a plain face with a dark outline reads best on the dimmed screen
     c.name = c:CreateFontString(nil, "OVERLAY")
-    c.name:SetFont(W.FaceInfo("noto").file, 13, "OUTLINE")
-    if not c.name:GetFont() then c.name:SetFont(GameFontNormal:GetFont(), 13, "OUTLINE") end
-    c.name:SetPoint("TOP", c, "BOTTOM", 0, -4)
-    c.name:SetHeight(32)
+    c.name:SetFont(W.FaceInfo("noto").file, 11, "THICKOUTLINE")
+    if not c.name:GetFont() then c.name:SetFont(GameFontNormal:GetFont(), 11, "THICKOUTLINE") end
+    c.name:SetPoint("TOP", c, "BOTTOM", 0, -14)
+    -- tall enough for three lines so a long name wraps instead of ending in "..."
+    c.name:SetHeight(48)
     c.name:SetJustifyV("TOP")
     p.cells[i] = c
   end
+  -- jewelry box: a title over each group (rings, trinkets, amulets) and a glowing line between them
+  p.gt, p.dv = {}, {}
+  for i = 1, 3 do
+    local t = W.Text(p, "GameFontNormal")
+    t:SetTextColor(1, 1, 0.6)
+    p.gt[i] = t
+    local d = {}
+    d.core = p:CreateTexture(nil, "OVERLAY")
+    d.core:SetTexture(1, 0.95, 0.5, 1)
+    d.core:SetWidth(2)
+    d.halo = p:CreateTexture(nil, "OVERLAY")
+    d.halo:SetTexture(1, 0.85, 0.2, 0.3)
+    d.halo:SetBlendMode("ADD")
+    d.halo:SetWidth(8)
+    p.dv[i] = d
+  end
   return p
 end
+
+local SEP, GTOP = 28, 24
+local GORDER = { "ring", "trinket", "amulet" }
+local GNAME = { ring = "Rings", trinket = "Trinkets", amulet = "Amulets" }
 
 -- What is still to take: spells and jewelry not taken yet; taken ones leave the box.
 -- Alternatives stay out, except the amulet's, which get a turquoise frame.
@@ -928,14 +949,57 @@ local function FillChoice(p, ev, isSpell, slotsFull)
     end
   end
   while table.getn(list) > CHOICE_N do table.remove(list) end
+  if not isSpell then
+    local sorted = {}
+    for _, g in ipairs(GORDER) do
+      for i = 1, table.getn(list) do
+        if AB.GROUP[list[i].pick.t] == g then list[i].g = g; table.insert(sorted, list[i]) end
+      end
+    end
+    list = sorted
+  end
   local n = table.getn(list)
-  local size = math.min(CHOICE_ICON, math.floor((CHOICE_W + CHOICE_GAP) / math.max(n, 1)) - CHOICE_GAP)
+  local groups = 0
+  for i = 1, n do
+    if not isSpell and (i == 1 or list[i].g ~= list[i - 1].g) then groups = groups + 1 end
+  end
+  local sepW = math.max(groups - 1, 0) * SEP
+  local size = math.min(CHOICE_ICON, math.floor((CHOICE_W + CHOICE_GAP - sepW) / math.max(n, 1)) - CHOICE_GAP)
+  local top = isSpell and -36 or -36 - GTOP
+  for i = 1, 3 do
+    p.gt[i]:Hide()
+    p.dv[i].core:Hide()
+    p.dv[i].halo:Hide()
+  end
+  local x, gi, gstart = 12, 0, 12
+  local gh = size + 112 + (isSpell and 0 or GTOP)
+  local function Title(g, from, to)
+    gi = gi + 1
+    p.gt[gi]:ClearAllPoints()
+    p.gt[gi]:SetPoint("TOP", p, "TOPLEFT", (from + to) / 2, -36)
+    p.gt[gi]:SetText(T(GNAME[g]))
+    p.gt[gi]:Show()
+  end
   for i = 1, n do
     local c, e = p.cells[i], list[i]
+    if not isSpell and i > 1 and e.g ~= list[i - 1].g then
+      local right = x - CHOICE_GAP
+      Title(list[i - 1].g, gstart, right)
+      x = right + SEP
+      gstart = x
+      local d = p.dv[gi]
+      for _, tx in ipairs({ d.core, d.halo }) do
+        tx:ClearAllPoints()
+        tx:SetPoint("TOP", p, "TOPLEFT", right + SEP / 2, -34)
+        tx:SetHeight(gh - 46)
+        tx:Show()
+      end
+    end
     c:SetWidth(size)
     c:SetHeight(size)
     c:ClearAllPoints()
-    c:SetPoint("TOPLEFT", p, "TOPLEFT", 12 + (i - 1) * (size + CHOICE_GAP), -36)
+    c:SetPoint("TOPLEFT", p, "TOPLEFT", x, top)
+    x = x + size + CHOICE_GAP
     local tex = AB.Icon(e.info and e.info.icon)
     c.icon:SetTexture(tex)
     c.shine:SetTexture(tex)
@@ -950,8 +1014,9 @@ local function FillChoice(p, ev, isSpell, slotsFull)
     c:Show()
   end
   for i = n + 1, CHOICE_N do p.cells[i]:Hide() end
-  p:SetWidth(math.max(24 + n * (size + CHOICE_GAP) - CHOICE_GAP, 200))
-  p:SetHeight(size + 86)
+  if not isSpell and n > 0 then Title(list[n].g, gstart, x - CHOICE_GAP) end
+  p:SetWidth(math.max(x - CHOICE_GAP + 12, 200))
+  p:SetHeight(gh)
   if n > 0 then p:Show() else p:Hide() end
 end
 
