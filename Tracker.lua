@@ -620,11 +620,11 @@ local function FillSpells(b, ev, live)
         r.name:SetTextColor(1, 0.45, 0.45)
         r.right:SetText("|cffff3333" .. T("BANISH") .. "|r")
       else
-        -- not taken yet: faded with no mark, like the build's other spells
+        -- not banished yet: faded with no mark, like the build's other spells
         Dot(r, nil)
         r.icon:SetVertexColor(0.45, 0.45, 0.45)
         r.name:SetTextColor(0.5, 0.5, 0.5)
-        r.right:SetText("|cffff5555" .. T(live.inRun and "missing" or "banish") .. "|r")
+        r.right:SetText("|cffff5555" .. T("to banish") .. "|r")
       end
     end
     r:Show()

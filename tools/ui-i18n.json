@@ -2110,5 +2110,16 @@
 "プランナーとトラッカーの言語です。ゲームにもある名前はゲーム自身の翻訳を使います。",
 "Planlayıcı ve izleyicinin dili. Oyunda da bulunan adlar oyunun kendi çevirilerini kullanır.",
 "플래너와 추적기의 언어입니다. 게임에도 있는 이름은 게임 자체 번역을 사용합니다."
+],
+"to banish": [
+"待放逐",
+"por desterrar",
+"à bannir",
+"a banir",
+"к изгнанию",
+"zu verbannen",
+"追放予定",
+"sürgün edilecek",
+"추방 예정"
 ]
 }
