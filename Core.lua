@@ -419,8 +419,18 @@ function AB.InitDB()
   db.mm = nil   -- the minimap button was removed
   if not ASBuilder_Loc[db.lang] then db.lang = "en" end
   if type(db.run) ~= "table" then db.run = {} end
-  -- brightness (%) while the game shows its cards; 0 = off
-  db.light = db.light or 80
+  -- the card-screen brightness option was removed: put back a gamma it may have left raised
+  db.light = nil
+  -- the helper boxes over the choice cards: on unless the player turned them off
+  -- layout v4: the choice boxes line up by themselves; start everyone from there once
+  if (db.layoutV or 0) < 4 then db.choicePos = nil; db.layoutV = 4 end
+  if type(db.boxes) ~= "table" then db.boxes = {} end
+  for _, k in ipairs({ "spells", "jewel", "bar" }) do
+    if db.boxes[k] == nil then db.boxes[k] = db.choice ~= false end
+  end
+  db.choice = nil
+  if db.gammaSaved and SetGamma then SetGamma(db.gammaSaved) end
+  db.gammaSaved = nil
   if type(db.run.jr) ~= "table" then db.run.jr = {} end
   if type(db.run.stage) ~= "table" then db.run.stage = {} end
   if type(db.run.pin) ~= "table" then db.run.pin = {} end
@@ -1386,9 +1396,9 @@ function AB.Evaluate(b, live, whole)
     res.nextSpell = NextOf(true)
     res.nextJewel = NextOf(false)
     res.next = res.nextSpell or res.nextJewel
-    -- off-build spells (only when the build has something in it)
+    -- off-build spells (only when the build has something in it; with no build chosen, all taken ones)
     local c = AB.ClassInfo(cls)
-    if c and (table.getn(b.picks) > 0 or (whole and AB.HasPicks(whole))) then
+    if c and (not whole or table.getn(b.picks) > 0 or AB.HasPicks(whole)) then
       for j = 1, table.getn(c.spells) do
         local s = c.spells[j]
         if live.spells[s.key] and not inBuild[s.key] then
@@ -2085,31 +2095,9 @@ core:SetScript("OnEvent", function()
   if AB.ready and AB.RefreshTracker then AB.RefreshTracker() end
 end)
 
--- The card screen darkens the game; while it is open the game's brightness goes up to the
--- chosen percent and back to the player's own when it closes. The player's own value is kept
--- in the saved variables, so a reload or crash in between still puts it back.
--- GetGamma/SetGamma work in the options slider's unit: -0.5 to +0.5 is 0 to 100% brightness.
-local function SelectionLight(ph)
-  if not GetGamma or not SetGamma then return end
-  local db = ASBuilderDB
-  if ph == "choosing" and db.light > 0 then
-    if db.gammaSaved then return end
-    local g = tonumber(GetGamma())
-    if not g then return end
-    db.gammaSaved = g
-    -- never darker than the player's own setting
-    SetGamma(math.max(g, db.light / 100 - 0.5))
-  elseif db.gammaSaved then
-    SetGamma(db.gammaSaved)
-    db.gammaSaved = nil
-  end
-end
-
 local tick, scan = 0, 0
 core:SetScript("OnUpdate", function()
   if not AB.ready then return end
-  -- every frame, so the light follows the card screen at once
-  SelectionLight(AB.Phase())
   tick = tick + arg1
   scan = scan + arg1
   if tick < 0.5 then return end
@@ -2149,6 +2137,8 @@ SlashCmdList["ASBUILDER"] = function(msg)
   elseif cmd == "reset" then
     db.tracker.point = nil
     db.tracker.scale = 1
+    db.choicePos = nil
+    if AB.ApplyChoiceLayout then AB.ApplyChoiceLayout() end
     if AB.ApplyTrackerLayout then AB.ApplyTrackerLayout() end
     AB.Print(T("Tracker moved back to its first place."))
   else

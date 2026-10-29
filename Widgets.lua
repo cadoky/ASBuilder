@@ -129,6 +129,8 @@ function W.Tooltip()
   if not tip then
     tip = CreateFrame("GameTooltip", "ASBuilderTip", UIParent, "GameTooltipTemplate")
     tip:SetFrameStrata("TOOLTIP")
+    -- game 0.126.0+: tooltips show over the level-up and jewelry cards too
+    if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(tip, true) end
   end
   return tip
 end

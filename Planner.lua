@@ -1125,6 +1125,7 @@ end
 local code
 local function CodeDialog()
   local d = CreateFrame("Frame", "ASBuilderCodeDialog", UIParent)
+  if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(d, true) end
   d:SetWidth(440)
   d:SetHeight(230)
   d:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
@@ -1340,35 +1341,40 @@ function P.LangMenu(f, anchor)
   return lb
 end
 
--- ---------------------------------------------------------------- brightness on the card screen
--- one button: each click steps Off, 60% ... 100%
-local LIGHT_STEPS = { 0, 60, 70, 80, 90, 100 }
-function P.LightButton(f, anchor)
-  local b = W.Button(f, "", 150, 18)
-  b:SetPoint("RIGHT", anchor, "LEFT", -6, 0)
-  local function Label()
-    local v = ASBuilderDB.light
-    b:SetLabel(v > 0 and T("Card light: %d%%", v) or T("Card light: Off"))
-  end
-  b:SetScript("OnClick", function()
-    local v, nxt = ASBuilderDB.light, LIGHT_STEPS[1]
-    for i = 1, table.getn(LIGHT_STEPS) do
-      if LIGHT_STEPS[i] > v then nxt = LIGHT_STEPS[i]; break end
+-- ---------------------------------------------------------------- helper boxes on the card screen
+-- three switches side by side, one per box; a box that is off is greyed out. Returns the
+-- left-most one.
+function P.ChoiceButtons(f, anchor)
+  local prev = anchor
+  local defs = { { "bar", "Priority" }, { "jewel", "JEWELRY" }, { "spells", "SPELLS" } }
+  for i = 1, table.getn(defs) do
+    local key, name = defs[i][1], defs[i][2]
+    local b = W.Button(f, T(name), 64, 18)
+    b:SetPoint("RIGHT", prev, "LEFT", (i == 1) and -6 or -3, 0)
+    local function Look()
+      local on = ASBuilderDB.boxes[key]
+      b.label:SetTextColor(on and 1 or 0.45, on and 0.82 or 0.45, on and 0.2 or 0.45)
     end
-    ASBuilderDB.light = nxt
-    Label()
-  end)
-  W.Tip(b, function(self, tt)
-    tt:SetText(T("Increase brightness on selection"), 1, 0.82, 0)
-    tt:AddLine(T("While the level-up, lair or cache cards are shown, the game's brightness goes up to this value, then back to your own setting. Click to change."), 0.8, 0.8, 0.8, 1)
-  end)
-  Label()
-  return b
+    b:SetScript("OnClick", function()
+      ASBuilderDB.boxes[key] = not ASBuilderDB.boxes[key]
+      Look()
+      if AB.RefreshTracker then AB.RefreshTracker() end
+    end)
+    W.Tip(b, function(self, tt)
+      tt:SetText(T(name), 1, 0.82, 0)
+      tt:AddLine(T("Shows the build's spells and jewelry above the level-up, lair and cache cards. Click to turn on or off."), 0.8, 0.8, 0.8, 1)
+    end)
+    Look()
+    prev = b
+  end
+  return prev
 end
 
 -- ---------------------------------------------------------------- the window
 local function Create()
   local f = CreateFrame("Frame", "ASBuilderPlanner", UIParent)
+  -- game 0.126.0+: the planner can be open over the level-up and jewelry cards
+  if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(f, true) end
   f:SetWidth(FW)
   f:SetHeight(FH)
   f:SetPoint("CENTER", UIParent, "CENTER", 0, 20)
@@ -1402,9 +1408,9 @@ local function Create()
   close.tex:SetTexCoord(0.18, 0.82, 0.18, 0.82)
   close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -5)
   close:SetScript("OnClick", function() f:Hide() end)
-  local light = P.LightButton(f, P.LangMenu(f, P.FontMenu(f, close)))
+  local choiceBtn = P.ChoiceButtons(f, P.LangMenu(f, P.FontMenu(f, close)))
   local more = W.Text(f, "GameFontNormalSmall")
-  more:SetPoint("RIGHT", light, "LEFT", -12, 0)
+  more:SetPoint("RIGHT", choiceBtn, "LEFT", -12, 0)
   more:SetText("Find more build: asbuilder.app")
 
   -- thin dividers between the three columns

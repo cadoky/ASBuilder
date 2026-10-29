@@ -158,6 +158,8 @@ local function Create()
   f:SetWidth(WIDTH)
   f:SetHeight(60)
   f:SetFrameStrata("MEDIUM")
+  -- game 0.126.0+: stay visible over the level-up and jewelry cards
+  if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(f, true) end
   f:SetMovable(true)
   if f.SetClampedToScreen then f:SetClampedToScreen(true) end
 
@@ -233,10 +235,11 @@ local function Create()
   h.name:SetWidth(126)
   h.name:SetHeight(12)
   h.arrow = h:CreateTexture(nil, "ARTWORK")
-  h.arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
-  h.arrow:SetWidth(16)
-  h.arrow:SetHeight(16)
-  h.arrow:SetPoint("LEFT", h.name, "RIGHT", 0, 0)
+  -- our own gold chevron: the game's chat arrow does not draw over the card screen
+  h.arrow:SetTexture("Interface\\AddOns\\ASBuilder\\media\\chev.tga")
+  h.arrow:SetWidth(14)
+  h.arrow:SetHeight(14)
+  h.arrow:SetPoint("LEFT", h.name, "RIGHT", 2, 0)
   h.prog = W.Text(h, "GameFontHighlightSmall", "RIGHT")
   h.prog:SetPoint("RIGHT", h, "RIGHT", -40, 0)
   h:RegisterForClicks("LeftButtonUp")
@@ -355,6 +358,12 @@ local function Create()
   end
   f.nextS = NextLine()
   f.nextJ = NextLine()
+  -- the priority strips: icons in the build's order, no text
+  f.prio = W.Text(pb, "GameFontNormalSmall", "CENTER")
+  f.prio:SetWidth(WIDTH)
+  f.prio:SetTextColor(1, 0.82, 0)
+  f.prio:SetText(T("Priority"))
+  f.stripS = {}
 
 
   -- SPELLS panel
@@ -440,6 +449,62 @@ local function RarityRGB(rarity)
   return 1, 1, 1
 end
 
+-- One strip of icons left to right in the build's order, a ">" between them; hover for the
+-- tooltip, a red cross over spells to banish, a gold edge on the next one to take, the ones
+-- already at their target faded. Returns the height it takes (0 when empty).
+local function StripCell(set, i)
+  local c = CreateFrame("Button", nil, f.pBuild)
+  c.bg = c:CreateTexture(nil, "BACKGROUND")
+  c.bg:SetTexture(W.FLAT)
+  c.bg:SetVertexColor(1, 0.82, 0, 0.9)
+  c.bg:SetPoint("TOPLEFT", c, "TOPLEFT", -1, 1)
+  c.bg:SetPoint("BOTTOMRIGHT", c, "BOTTOMRIGHT", 1, -1)
+  c.icon = c:CreateTexture(nil, "ARTWORK")
+  c.icon:SetAllPoints(c)
+  c.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  c.cross = c:CreateTexture(nil, "OVERLAY")
+  c.cross:SetTexture("Interface\\AddOns\\ASBuilder\\media\\cross.tga")
+  c.cross:SetAllPoints(c)
+  c.arrow = W.Text(c, "GameFontNormalSmall", "CENTER")
+  c.arrow:SetTextColor(1, 0.85, 0.3)
+  c.arrow:SetText(">")
+  W.Tip(c, function(self, tt) if self.data then RowTip(self, tt) end end)
+  set[i] = c
+  return c
+end
+
+local STRIP_GAP = 9
+-- the icon size that fits n icons in the panel
+local function StripSize(n)
+  if n == 0 then return 22 end
+  return math.max(math.min(22, math.floor((WIDTH - 14 - (n - 1) * STRIP_GAP) / n)), 12)
+end
+
+local function LayoutStrip(set, list, y, size)
+  for i = 1, table.getn(set) do set[i]:Hide() end
+  local n = math.min(table.getn(list), 14)
+  if n == 0 then return 0 end
+  local gap = STRIP_GAP
+  local x0 = math.floor((WIDTH - (n * size + (n - 1) * gap)) / 2)
+  for i = 1, n do
+    local c, e = set[i] or StripCell(set, i), list[i]
+    c:SetWidth(size)
+    c:SetHeight(size)
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", f.pBuild, "TOPLEFT", x0 + (i - 1) * (size + gap), -(y + 1))
+    c.icon:SetTexture(AB.Icon(e.info and e.info.icon))
+    c.icon:SetAlpha(e.dim and 0.4 or 1)
+    c.data = e.data
+    if e.lit then c.bg:Show() else c.bg:Hide() end
+    if e.ban then c.cross:Show() else c.cross:Hide() end
+    c.arrow:ClearAllPoints()
+    c.arrow:SetPoint("CENTER", c, "RIGHT", gap / 2, 0)
+    if i < n then c.arrow:Show() else c.arrow:Hide() end
+    c:Show()
+  end
+  return size + 4
+end
+
 -- BUILD panel. Returns its height.
 local function FillBuild(b, ev, live, stage, pinned)
   local pb, h = f.pBuild, f.head
@@ -448,6 +513,9 @@ local function FillBuild(b, ev, live, stage, pinned)
   h.icon:SetTexture(AB.Icon(AB.CLASS_ICON[cls]))
   f.col:SetLabel(ASBuilderDB.tracker.collapsed and "+" or "-")
   f.nextJ:Hide()
+  f.nextS:Show()
+  f.prio:Hide()
+  LayoutStrip(f.stripS, {}, 0)
   local y = 22
 
   if not b then
@@ -485,37 +553,36 @@ local function FillBuild(b, ev, live, stage, pinned)
     y = y + 17
   end
 
-  local lit = live.phase == "choosing"
-  local hasSpell, hasJewel, blockedJewel = false, false, false
+  -- the priority strips: spells, then jewelry, in the planner's order; the spells to banish
+  -- come last, after the build's own
+  local spells = {}
   for i = 1, table.getn(ev.rows) do
     local r = ev.rows[i]
-    if r.pick.t == "spell" then hasSpell = true else hasJewel = true end
-    if r.blocked then blockedJewel = true end
-  end
-  Place(f.nextS, pb, y)
-  if not live.inRun then
-    SetNext(f.nextS, T("Next:"), nil, "|cff999999" .. T("Waiting for a run") .. "|r")
-  elseif ev.total == 0 then
-    SetNext(f.nextS, T("Next:"), nil, "|cff999999" .. T("Empty build") .. "|r")
-  elseif not ev.nextSpell and not ev.nextJewel and not blockedJewel then
-    SetNext(f.nextS, T("Next:"), nil, "|cff55ff55" .. T("Build complete!") .. "|r")
-  else
-    local done = "|cff55ff55" .. T("Done") .. "|r"
-    local jewelMsg = blockedJewel and ("|cff999999" .. T("Slots full") .. "|r") or done
-    if hasSpell then
-      SetNext(f.nextS, T("Spell:"), ev.nextSpell, done, lit and ev.nextSpell)
-      if hasJewel then
-        y = y + 21
-        Place(f.nextJ, pb, y)
-        SetNext(f.nextJ, T("Jewelry:"), ev.nextJewel, jewelMsg, lit and ev.nextJewel)
-        f.nextJ:Show()
-      end
-    else
-      SetNext(f.nextS, T("Jewelry:"), ev.nextJewel, jewelMsg, lit and ev.nextJewel)
+    if r.pick.t == "spell" and not r.extra and not r.pick.alt then
+      table.insert(spells, { info = r.info, data = { row = r, pick = r.pick }, dim = live.inRun and not r.owned })
     end
   end
-  y = y + 21
-
+  local banished = ASBuilderDB.run.banished or {}
+  for i = 1, table.getn(ev.bans) do
+    local d = ev.bans[i]
+    table.insert(spells, { info = d.info, ban = true, data = { pick = d.pick, ban = true, banished = banished[d.pick.k] } })
+  end
+  if table.getn(spells) == 0 then
+    -- nothing to line up: the build has no spells
+    if ev.total == 0 then
+      Place(f.nextS, pb, y)
+      SetNext(f.nextS, "", nil, "|cff999999" .. T("Empty build") .. "|r")
+      return y + 22
+    end
+    f.nextS:Hide()
+    return y + 2
+  end
+  f.nextS:Hide()
+  f.prio:ClearAllPoints()
+  f.prio:SetPoint("TOP", pb, "TOP", 0, -(y + 3))
+  f.prio:Show()
+  y = y + 17
+  y = y + LayoutStrip(f.stripS, spells, y, StripSize(math.min(table.getn(spells), 14)))
   return y + 2
 end
 
@@ -548,9 +615,9 @@ local function FillSpells(b, ev, live)
   for i = 1, SPELL_ROWS do f.spellRows[i]:Hide() end
   f.missLine:Hide()
   f.missLabel:Hide()
-  if not b then return nil end
+  local cls = AB.CurrentClass()
   local top, below = {}, {}
-  local used = SpellsUsed(b.class, live)
+  local used = SpellsUsed(cls, live)
   local full = live.inRun and used >= (AB.MAX.spell or 6)
   for i = 1, table.getn(ev.rows) do
     local row = ev.rows[i]
@@ -561,7 +628,7 @@ local function FillSpells(b, ev, live)
   end
   for i = 1, table.getn(ev.off) do
     local o = ev.off[i]
-    table.insert(top, { kind = "off", pick = o.pick, rank = o.rank, info = AB.Info(b.class, o.pick), icon = o.icon })
+    table.insert(top, { kind = "off", pick = o.pick, rank = o.rank, info = AB.Info(cls, o.pick), icon = o.icon })
   end
   local banished = ASBuilderDB.run.banished or {}
   for i = 1, table.getn(ev.bans) do
@@ -790,6 +857,7 @@ local function CreateMenu()
   menu = CreateFrame("Frame", "ASBuilderBuildMenu", UIParent)
   menu:SetWidth(WIDTH)
   menu:SetFrameStrata("DIALOG")
+  if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(menu, true) end
   W.Panel(menu, 0.97, 0.35)
   menu:EnableMouse(true)
   menu:Hide()
@@ -854,35 +922,157 @@ end
 -- ---------------------------------------------------------------- choice boxes
 -- While the game offers cards (level-up, lair, cache) two big boxes show the build's spells
 -- and jewelry above the screen's dark veil: the ones still to take glow, the rest are dimmed.
-local CHOICE_ICON, CHOICE_GAP, CHOICE_N = 88, 10, 9
+-- CHOICE_RADIUS: the corner radius, to match the game's cards (media\corner.tga is a 64px quarter circle)
+local CHOICE_ICON, CHOICE_GAP, CHOICE_N, CHOICE_RADIUS = 76, 8, 9, 16
+-- the space between a box's border and its content, the same on all four sides
+local CHOICE_PAD = 10
 -- the width of six icons: more icons than that get smaller instead of making the box wider
 local CHOICE_W = 6 * (CHOICE_ICON + CHOICE_GAP) - CHOICE_GAP
 local choice
 
-local function ChoiceBox(title, point, x)
+-- Where a box sits: the place and size the player gave it (drag it, or its bottom-right grip),
+-- else its first corner. Saved as screen pixels of the top-left corner plus the scale.
+-- every box keeps its own scale
+local function ChoiceScale(p)
+  local own = ASBuilderDB.choicePos and ASBuilderDB.choicePos[p.key]
+  return own and own[3] or 1
+end
+
+local function ChoicePlace(p)
+  local pos = ASBuilderDB.choicePos and ASBuilderDB.choicePos[p.key]
+  p:ClearAllPoints()
+  if pos then
+    local s, ui = ChoiceScale(p), UIParent:GetEffectiveScale()
+    p:SetScale(s)
+    p:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", pos[1] / (s * ui), pos[2] / (s * ui))
+  else
+    p:SetScale(ChoiceScale(p))
+    p:SetPoint(p.dpoint, UIParent, p.dpoint, p.dx, p.dy)
+  end
+end
+
+local function ChoiceSave(p)
+  if not p:GetLeft() then return end
+  local eff = p:GetEffectiveScale()
+  if type(ASBuilderDB.choicePos) ~= "table" then ASBuilderDB.choicePos = {} end
+  ASBuilderDB.choicePos[p.key] = { p:GetLeft() * eff, p:GetTop() * eff, p:GetScale() }
+end
+
+-- The first place of each box: spells top left, jewelry top right, the order bar in the middle,
+-- all hung from the same line at the top. Each is anchored to the screen alone, so resizing or
+-- moving one never moves another.
+local CHOICE_MARGIN, CHOICE_TOPM = 20, 36
+
+function AB.ApplyChoiceLayout()
+  if choice then
+    ChoicePlace(choice.spells); ChoicePlace(choice.jewel); ChoicePlace(choice.bar)
+  end
+end
+
+local function ChoiceBox(key, point, x, y)
   local p = CreateFrame("Frame", nil, choice)
+  p.key, p.dpoint, p.dx, p.dy = key, point, x, y
   p:SetFrameStrata("TOOLTIP")
   -- above other TOOLTIP frames too (the damage meter's minimap button sits there); set before
   -- the cells are made, so they start above it
   p:SetFrameLevel(100)
-  W.Panel(p, 0.88, 0.35)
-  -- the game's veil darkens every addon frame, so everything here is drawn as bright as it goes
-  p:SetBackdropBorderColor(1, 0.85, 0.3, 1)
-  p:SetPoint(point, UIParent, point, x, -40)
-  p.title = W.Text(p, "GameFontNormalLarge")
-  p.title:SetPoint("TOPLEFT", p, "TOPLEFT", 12, -8)
-  p.title:SetTextColor(1, 1, 0.6)
-  p.title:SetText(title)
+  -- rounded like the game's cards: four corner pieces (media\corner.tga, a quarter circle with a gold
+  -- rim and the dark fill) and plain gold lines and fill in between
+  local R, B = CHOICE_RADIUS, 2
+  local function Tex(layer, r, g, b, a)
+    local t = p:CreateTexture(nil, layer)
+    t:SetTexture(W.FLAT)
+    t:SetVertexColor(r, g, b, a)
+    return t
+  end
+  local function Corner(pt, l, r, t, bm)
+    local c = p:CreateTexture(nil, "BACKGROUND")
+    c:SetTexture("Interface\\AddOns\\ASBuilder\\media\\corner.tga")
+    c:SetTexCoord(l, r, t, bm)
+    c:SetWidth(R)
+    c:SetHeight(R)
+    c:SetPoint(pt, p, pt, 0, 0)
+  end
+  Corner("TOPLEFT", 0, 1, 0, 1)
+  Corner("TOPRIGHT", 1, 0, 0, 1)
+  Corner("BOTTOMLEFT", 0, 1, 1, 0)
+  Corner("BOTTOMRIGHT", 1, 0, 1, 0)
+  local mid = Tex("BACKGROUND", 0.06, 0.06, 0.08, 0.88)
+  mid:SetPoint("TOPLEFT", p, "TOPLEFT", R, 0)
+  mid:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -R, 0)
+  local lf = Tex("BACKGROUND", 0.06, 0.06, 0.08, 0.88)
+  lf:SetPoint("TOPLEFT", p, "TOPLEFT", B, -R)
+  lf:SetPoint("BOTTOMRIGHT", p, "BOTTOMLEFT", R, R)
+  local rt = Tex("BACKGROUND", 0.06, 0.06, 0.08, 0.88)
+  rt:SetPoint("TOPLEFT", p, "TOPRIGHT", -R, -R)
+  rt:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -B, R)
+  local top = Tex("ARTWORK", 1, 0.85, 0.3, 1)
+  top:SetPoint("TOPLEFT", p, "TOPLEFT", R, 0)
+  top:SetPoint("BOTTOMRIGHT", p, "TOPRIGHT", -R, -B)
+  local bot = Tex("ARTWORK", 1, 0.85, 0.3, 1)
+  bot:SetPoint("TOPLEFT", p, "BOTTOMLEFT", R, B)
+  bot:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -R, 0)
+  local left = Tex("ARTWORK", 1, 0.85, 0.3, 1)
+  left:SetPoint("TOPLEFT", p, "TOPLEFT", 0, -R)
+  left:SetPoint("BOTTOMRIGHT", p, "BOTTOMLEFT", B, R)
+  local right = Tex("ARTWORK", 1, 0.85, 0.3, 1)
+  right:SetPoint("TOPLEFT", p, "TOPRIGHT", -B, -R)
+  right:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", 0, R)
+  ChoicePlace(p)
+  -- drag the box anywhere, resize it from the bottom-right grip (same as the tracker)
+  p:SetMovable(true)
+  p:EnableMouse(true)
+  p:RegisterForDrag("LeftButton")
+  p:SetClampedToScreen(true)
+  p:SetScript("OnDragStart", function()
+    if not ASBuilderDB.tracker.locked then p.busy = true; p:StartMoving() end
+  end)
+  p:SetScript("OnDragStop", function() p.busy = nil; p:StopMovingOrSizing(); ChoiceSave(p) end)
+  local grip = CreateFrame("Button", nil, p)
+  grip:SetWidth(14)
+  grip:SetHeight(14)
+  grip:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -6, 6)
+  grip:SetFrameLevel(p:GetFrameLevel() + 10)
+  -- a small yellow arrow pointing out of the corner
+  local arrow = grip:CreateTexture(nil, "OVERLAY")
+  arrow:SetTexture("Interface\\AddOns\\ASBuilder\\media\\grip.tga")
+  arrow:SetAllPoints(grip)
+  W.Hover(grip, 0.15)
+  W.Tip(grip, function(self, tt)
+    tt:SetText(T("Drag to resize"), 1, 0.82, 0)
+    tt:AddLine(T("/asb reset: normal size and place"), 0.6, 0.6, 0.6, 1)
+  end)
+  local function StopSizing()
+    if not grip:GetScript("OnUpdate") then return end
+    grip:SetScript("OnUpdate", nil)
+    p.busy = nil
+    ChoiceSave(p)
+  end
+  grip:SetScript("OnMouseDown", function()
+    if grip:GetScript("OnUpdate") then StopSizing(); return end
+    if ASBuilderDB.tracker.locked then return end
+    p.busy = true
+    local eff = p:GetEffectiveScale()
+    grip.left, grip.top = p:GetLeft() * eff, p:GetTop() * eff
+    grip:SetScript("OnUpdate", function()
+      if IsMouseButtonDown and not IsMouseButtonDown("LeftButton") then StopSizing(); return end
+      local ui = UIParent:GetEffectiveScale()
+      local cx = GetCursorPosition()
+      local s = (cx - grip.left) / (p:GetWidth() * ui)
+      if s < 0.4 then s = 0.4 elseif s > 2.5 then s = 2.5 end
+      p:SetScale(s)
+      p:ClearAllPoints()
+      p:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", grip.left / (s * ui), grip.top / (s * ui))
+    end)
+  end)
+  grip:SetScript("OnMouseUp", StopSizing)
+  grip:SetScript("OnHide", StopSizing)
+  if key == "bar" then return p end   -- the order bar fills its own cells (FillBar)
   p.cells = {}
   for i = 1, CHOICE_N do
     local c = CreateFrame("Frame", nil, p)
     c.icon = c:CreateTexture(nil, "ARTWORK")
     c.icon:SetAllPoints(c)
-    -- the same icon added on top makes it brighter than the game draws it
-    c.shine = c:CreateTexture(nil, "OVERLAY")
-    c.shine:SetAllPoints(c)
-    c.shine:SetBlendMode("ADD")
-    c.shine:SetAlpha(0.4)
     c.glow = c:CreateTexture(nil, "OVERLAY")
     c.glow:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
     c.glow:SetBlendMode("ADD")
@@ -891,34 +1081,29 @@ local function ChoiceBox(title, point, x)
     c.name = c:CreateFontString(nil, "OVERLAY")
     c.name:SetFont(W.FaceInfo("noto").file, 11, "THICKOUTLINE")
     if not c.name:GetFont() then c.name:SetFont(GameFontNormal:GetFont(), 11, "THICKOUTLINE") end
-    c.name:SetPoint("TOP", c, "BOTTOM", 0, -14)
+    c.name:SetPoint("TOP", c, "BOTTOM", 0, -6)
     -- tall enough for three lines so a long name wraps instead of ending in "..."
     c.name:SetHeight(48)
     c.name:SetJustifyV("TOP")
     p.cells[i] = c
   end
-  -- jewelry box: a title over each group (rings, trinkets, amulets) and a glowing line between them
+  -- jewelry box: a title over each group (rings, trinkets, amulets) and a plain line between them
   p.gt, p.dv = {}, {}
   for i = 1, 3 do
     local t = W.Text(p, "GameFontNormal")
     t:SetTextColor(1, 1, 0.6)
     p.gt[i] = t
-    local d = {}
-    d.core = p:CreateTexture(nil, "OVERLAY")
-    d.core:SetTexture(1, 0.95, 0.5, 1)
-    d.core:SetWidth(2)
-    d.halo = p:CreateTexture(nil, "OVERLAY")
-    d.halo:SetTexture(1, 0.85, 0.2, 0.3)
-    d.halo:SetBlendMode("ADD")
-    d.halo:SetWidth(8)
+    local d = p:CreateTexture(nil, "OVERLAY")
+    d:SetTexture(1, 0.85, 0.3, 0.7)
+    d:SetWidth(2)
     p.dv[i] = d
   end
   return p
 end
 
-local SEP, GTOP = 28, 24
+local SEP, GTOP = 20, 16
 local GORDER = { "ring", "trinket", "amulet" }
-local GNAME = { ring = "Rings", trinket = "Trinkets", amulet = "Amulets" }
+local GNAME = { spell = "Spells", ring = "Rings", trinket = "Trinkets", amulet = "Amulets" }
 
 -- What is still to take: spells and jewelry not taken yet; taken ones leave the box.
 -- Alternatives stay out, except the amulet's, which get a turquoise frame.
@@ -932,7 +1117,7 @@ end
 -- glow colours: spell to take, spell to banish, jewelry, amulet alternative
 local GLOW = { spell = { 0.3, 1, 0.3 }, ban = { 1, 0.15, 0.15 }, jewel = { 1, 0.85, 0.2 }, alt = { 0.2, 1, 0.95 } }
 
-local function FillChoice(p, ev, isSpell, slotsFull)
+local function FillChoice(p, ev, isSpell, slotsFull, force)
   local list = {}
   for i = 1, table.getn(ev.rows) do
     local ok, alt = Wanted(ev.rows[i], isSpell)
@@ -965,18 +1150,19 @@ local function FillChoice(p, ev, isSpell, slotsFull)
   end
   local sepW = math.max(groups - 1, 0) * SEP
   local size = math.min(CHOICE_ICON, math.floor((CHOICE_W + CHOICE_GAP - sepW) / math.max(n, 1)) - CHOICE_GAP)
-  local top = isSpell and -36 or -36 - GTOP
+  p.natural = size
+  if force then size = force end   -- both boxes use the smaller of their two sizes
+  local top = -CHOICE_PAD - GTOP   -- both boxes: a title row, then the icons, so they are as tall as each other
   for i = 1, 3 do
     p.gt[i]:Hide()
-    p.dv[i].core:Hide()
-    p.dv[i].halo:Hide()
+    p.dv[i]:Hide()
   end
-  local x, gi, gstart = 12, 0, 12
-  local gh = size + 112 + (isSpell and 0 or GTOP)
+  local x, gi, gstart = CHOICE_PAD, 0, CHOICE_PAD
+  local maxh = 14   -- tallest name, so the box ends right under the names
   local function Title(g, from, to)
     gi = gi + 1
     p.gt[gi]:ClearAllPoints()
-    p.gt[gi]:SetPoint("TOP", p, "TOPLEFT", (from + to) / 2, -36)
+    p.gt[gi]:SetPoint("TOP", p, "TOPLEFT", (from + to) / 2, -CHOICE_PAD)
     p.gt[gi]:SetText(T(GNAME[g]))
     p.gt[gi]:Show()
   end
@@ -987,13 +1173,12 @@ local function FillChoice(p, ev, isSpell, slotsFull)
       Title(list[i - 1].g, gstart, right)
       x = right + SEP
       gstart = x
+      -- from the top border to the bottom one, no gap
       local d = p.dv[gi]
-      for _, tx in ipairs({ d.core, d.halo }) do
-        tx:ClearAllPoints()
-        tx:SetPoint("TOP", p, "TOPLEFT", right + SEP / 2, -34)
-        tx:SetHeight(gh - 46)
-        tx:Show()
-      end
+      d:ClearAllPoints()
+      d:SetPoint("TOP", p, "TOPLEFT", right + SEP / 2, -5)
+      d:SetPoint("BOTTOM", p, "BOTTOMLEFT", right + SEP / 2, 5)
+      d:Show()
     end
     c:SetWidth(size)
     c:SetHeight(size)
@@ -1002,29 +1187,118 @@ local function FillChoice(p, ev, isSpell, slotsFull)
     x = x + size + CHOICE_GAP
     local tex = AB.Icon(e.info and e.info.icon)
     c.icon:SetTexture(tex)
-    c.shine:SetTexture(tex)
     c.glow:SetWidth(size * 1.9)
     c.glow:SetHeight(size * 1.9)
     c.glow:SetVertexColor(e.glow[1], e.glow[2], e.glow[3])
     c.name:SetWidth(size + CHOICE_GAP)
     c.name:SetText(e.info and AB.N(e.info.name) or e.pick.k)
+    -- no GetStringHeight in this client: with no fixed height the text reports its own
+    c.name:SetHeight(0)
+    local nh = c.name:GetHeight() or 0
+    c.name:SetHeight(48)
+    if nh <= 0 then nh = 48 end
+    if nh > maxh then maxh = nh end
     -- only amulets have a fixed rarity; spells, rings and trinkets get theirs on the card
     local rarity = e.pick.t == "legend" and "Legendary" or (e.info and e.info.rarity)
     c.name:SetTextColor(RarityRGB(rarity))
     c:Show()
   end
   for i = n + 1, CHOICE_N do p.cells[i]:Hide() end
-  if not isSpell and n > 0 then Title(list[n].g, gstart, x - CHOICE_GAP) end
-  p:SetWidth(math.max(x - CHOICE_GAP + 12, 200))
-  p:SetHeight(gh)
+  if n > 0 then Title(isSpell and "spell" or list[n].g, gstart, x - CHOICE_GAP) end
+  p:SetWidth(math.max(x - CHOICE_GAP + CHOICE_PAD, 120))
+  p:SetHeight(-top + size + 6 + math.min(maxh, 48) + CHOICE_PAD)
   if n > 0 then p:Show() else p:Hide() end
+end
+
+-- ORDER BAR: the build's spells in the planner's order (1 = top of its spell list), with the
+-- spells to banish last and a red cross over them; a BANISH label sits above their numbers.
+local BAR_N, BAR_ICON, BAR_GAP = 14, 40, 18
+
+local function BarCell(p, i)
+  local c = CreateFrame("Frame", nil, p)
+  c:SetWidth(BAR_ICON)
+  c:SetHeight(BAR_ICON)
+  c.icon = c:CreateTexture(nil, "ARTWORK")
+  c.icon:SetAllPoints(c)
+  c.cross = c:CreateTexture(nil, "OVERLAY")
+  c.cross:SetTexture("Interface\\AddOns\\ASBuilder\\media\\cross.tga")
+  c.cross:SetAllPoints(c)
+  c.num = W.Text(c, "GameFontNormalLarge", "CENTER")
+  c.num:SetPoint("BOTTOM", c, "TOP", 0, 3)
+  c.ban = W.Text(c, "GameFontNormalSmall", "CENTER")
+  c.ban:SetPoint("BOTTOM", c.num, "TOP", 0, 1)
+  c.ban:SetTextColor(1, 0.25, 0.25)
+  c.name = c:CreateFontString(nil, "OVERLAY")
+  c.name:SetFont(W.FaceInfo("noto").file, 11, "THICKOUTLINE")
+  if not c.name:GetFont() then c.name:SetFont(GameFontNormal:GetFont(), 11, "THICKOUTLINE") end
+  c.name:SetPoint("TOP", c, "BOTTOM", 0, -4)
+  c.name:SetWidth(BAR_ICON + BAR_GAP - 4)
+  c.name:SetHeight(30)
+  c.name:SetJustifyV("TOP")
+  c.arrow = W.Text(c, "GameFontNormalLarge", "CENTER")
+  c.arrow:SetPoint("CENTER", c, "RIGHT", BAR_GAP / 2, 0)
+  c.arrow:SetTextColor(1, 0.85, 0.3)
+  c.arrow:SetText(">")
+  p.cells[i] = c
+  return c
+end
+
+local function FillBar(p, ev)
+  p.cells = p.cells or {}
+  local list = {}
+  for i = 1, table.getn(ev.rows) do
+    local r = ev.rows[i]
+    if r.pick.t == "spell" and not r.extra and not r.pick.alt then
+      table.insert(list, { info = r.info, pick = r.pick })
+    end
+  end
+  local nban = table.getn(ev.bans)
+  while table.getn(list) > BAR_N - nban do table.remove(list) end
+  for i = 1, nban do table.insert(list, { info = ev.bans[i].info, pick = ev.bans[i].pick, ban = true }) end
+  local n = table.getn(list)
+  if n == 0 then p:Hide(); return end
+  local top = -(CHOICE_PAD + 19 + (nban > 0 and 11 or 0))
+  local maxh = 12
+  for i = 1, n do
+    local c, e = p.cells[i] or BarCell(p, i), list[i]
+    c:ClearAllPoints()
+    c:SetPoint("TOPLEFT", p, "TOPLEFT", CHOICE_PAD + (i - 1) * (BAR_ICON + BAR_GAP), top)
+    c.icon:SetTexture(AB.Icon(e.info and e.info.icon))
+    c.name:SetText(e.info and AB.N(e.info.name) or e.pick.k)
+    c.name:SetHeight(0)
+    local nh = c.name:GetHeight() or 0
+    c.name:SetHeight(30)
+    if nh <= 0 then nh = 30 end
+    if nh > maxh then maxh = nh end
+    c.num:SetText(i)
+    if e.ban then
+      c.cross:Show()
+      c.ban:SetText(T("BANISH"))
+      c.num:SetTextColor(1, 0.35, 0.35)
+      c.name:SetTextColor(1, 0.45, 0.45)
+    else
+      c.cross:Hide()
+      c.ban:SetText("")
+      c.num:SetTextColor(1, 1, 0.6)
+      c.name:SetTextColor(1, 1, 1)
+    end
+    if i < n then c.arrow:Show() else c.arrow:Hide() end
+    c:Show()
+  end
+  for i = n + 1, table.getn(p.cells) do p.cells[i]:Hide() end
+  p:SetWidth(CHOICE_PAD + n * (BAR_ICON + BAR_GAP) - BAR_GAP + CHOICE_PAD)
+  p:SetHeight(-top + BAR_ICON + 4 + math.min(maxh, 30) + CHOICE_PAD)
+  p:Show()
 end
 
 local function ShowChoice(ev, slotsFull)
   if not choice then
-    choice = CreateFrame("Frame", nil, UIParent)
-    choice.spells = ChoiceBox(T("Build spells"), "TOPLEFT", 40)
-    choice.jewel = ChoiceBox(T("Build jewelry"), "TOPRIGHT", -40)
+    choice = CreateFrame("Frame", "ASBuilderChoice", UIParent)
+    -- game 0.126.0+: keep the boxes over the cards (and clickable); older games just skip it
+    if AZS_SetOnTopOfScreens then AZS_SetOnTopOfScreens(choice, true) end
+    choice.spells = ChoiceBox("spells", "TOPLEFT", CHOICE_MARGIN, -CHOICE_TOPM)
+    choice.jewel = ChoiceBox("jewel", "TOPRIGHT", -CHOICE_MARGIN, -CHOICE_TOPM)
+    choice.bar = ChoiceBox("bar", "TOP", 0, -CHOICE_TOPM)
     -- the glow breathes so the eye finds it
     choice:SetScript("OnUpdate", function()
       local a = 0.6 + 0.25 * math.sin(GetTime() * 4)
@@ -1035,12 +1309,27 @@ local function ShowChoice(ev, slotsFull)
   end
   FillChoice(choice.spells, ev, true, slotsFull)
   FillChoice(choice.jewel, ev, false)
+  -- the same icon size in both boxes: fill again at the smaller of the two
+  local same = math.min(choice.spells.natural or CHOICE_ICON, choice.jewel.natural or CHOICE_ICON)
+  FillChoice(choice.spells, ev, true, slotsFull, same)
+  FillChoice(choice.jewel, ev, false, nil, same)
+  FillBar(choice.bar, ev)
+  -- each box has its own switch in the planner header
+  for _, p in ipairs({ choice.spells, choice.jewel, choice.bar }) do
+    if not ASBuilderDB.boxes[p.key] then p:Hide() end
+  end
+  -- the two boxes get the same frame height whatever their names need
+  local hh = math.max(choice.spells:GetHeight(), choice.jewel:GetHeight())
+  choice.spells:SetHeight(hh)
+  choice.jewel:SetHeight(hh)
   choice:Show()
 end
 
 function TR.Refresh()
   if not AB.ready then return end
-  if choice then choice:Hide() end
+  -- the refresh hides the boxes and shows them again; hiding one that is being dragged or
+  -- resized would drop it, so those stay
+  if choice and not (choice.spells.busy or choice.jewel.busy or choice.bar.busy) then choice:Hide() end
   if not f then Create() end
   local db = ASBuilderDB.tracker
   if db.mode == "hidden" then f:Hide(); return end
