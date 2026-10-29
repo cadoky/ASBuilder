@@ -69,9 +69,8 @@ TRACKER (while you play) - three separate panels
   - Stage: the stage being followed. It moves on by itself when every pick of the stage
     reaches its target rank (empty stages are skipped), and to the Endless stage when the
     run goes endless. Click it to step to another stage by hand.
-  - Spell: / Jewelry: the next spell and the next piece of jewelry to take or upgrade
-    (level-up cards are spells, caches offer jewelry). Lit yellow while cards are on screen.
-    "Slots full": the build's missing pieces cannot be taken because the slots are full.
+  - Priority: your build's spells in order, left to right, 1 first. Hover an icon for its
+    tooltip. Spells you do not have yet are dark, spells to banish come last with a red cross.
   - Book button: planner. Drag the header to move the tracker.
   SPELLS
   - Every spell that matters, in one list. The header counts your spell slots (3/6).
@@ -90,6 +89,14 @@ TRACKER (while you play) - three separate panels
     ("+48% DMG /60").
   - The build's pieces you still miss, in gray. When that kind's slots are full with other
     pieces, they show no "missing".
+
+CARD SCREEN (level-up, lair and cache cards; needs game 0.126.0 or newer)
+  - Three boxes stay above the cards: your build's spells, its jewelry (rings, trinkets,
+    amulets) and a priority bar with the spells in order (spells to banish at the end with a red
+    cross and BANISH over their number). Each one can be dragged anywhere and resized from its
+    bottom-right arrow; it remembers its place and size. /asb reset puts them back.
+  - The planner's top bar has a switch for each box (SPELLS, JEWELRY, Priority) to turn it off.
+  - The tracker, the planner and tooltips also stay above the cards.
 
 GAME DATA AND UPDATES
   - Data.lua and Names.lua are generated from the game itself (AzerothSurvivors.exe):

@@ -12,7 +12,8 @@ Plan a build for any class before the run, then let a small window tell you what
 - **Example builds**: every class comes with a working example build. Each is added once; updates never touch your own builds or the examples you changed or deleted.
 - **Talent screenshot link**: addons can't read talent data, so each build has a box for a screenshot link (imgur, prnt.sc, Discord). Click it, press Ctrl+C and open it in your browser.
 - **Stages**: Early, Mid, End and Endless by default (renamable). The tracker moves to the next stage once you hit every target. It warns you if a later stage drops something you already took.
-- **Tracker**: the next spell and jewelry to take or upgrade. The Spells panel shows your build's spells (faded until taken, green dot once taken), off-build spells you took (purple dot) and spells to banish, with a slot counter (3/6). The Jewelry panel shows what each worn piece gives right now.
+- **Tracker**: the next spell and jewelry to take or upgrade. The Spells panel shows your build's spells (faded until taken, green dot once taken), off-build spells you took (purple dot) and spells to banish, with a slot counter (3/6). The Jewelry panel shows what each worn piece gives right now. A priority strip lists your build's spells in order.
+- **Card screen** (game 0.126.0+): your build's spells, jewelry and a spell priority bar show above the level-up, lair and cache cards. Drag and resize each box, and switch each one on or off in the planner's top bar.
 - **Share builds**: export a build as a short code (`ASB2:...`) and import a friend's.
 - **Transfer current build**: turn what you have mid-run into a new build.
 - Works in every language the game ships.
