@@ -648,6 +648,10 @@ local function FillSpells(b, ev, live)
     r.icon:SetTexture(AB.Icon((e.info and e.info.icon) or e.icon))
     r.name:SetText(e.info and AB.N(e.info.name) or e.pick.k)
     r.strike:Hide()
+    if r.rfBase then  -- undo the shrink of a "take then banish" label
+      r.right:SetFont(r.rfBase[1], r.rfBase[2], r.rfBase[3])
+      r.rfBase = nil
+    end
     r.bg:SetVertexColor(1, 1, 1, 0)
     r:SetAlpha(1)
     r.icon:SetVertexColor(1, 1, 1)
@@ -691,7 +695,16 @@ local function FillSpells(b, ev, live)
         Dot(r, nil)
         r.icon:SetVertexColor(0.45, 0.45, 0.45)
         r.name:SetTextColor(0.5, 0.5, 0.5)
-        r.right:SetText("|cffff5555" .. T(live.inRun and "missing" or "banish") .. "|r")
+        r.right:SetText("|cffff5555" .. T("take then banish") .. "|r")
+        -- long label: shrink the font until it fits the right column
+        local f, s, fl = r.right:GetFont()
+        if type(f) == "string" then
+          r.rfBase = { f, s, fl }
+          while s > 7 and r.right:GetStringWidth() > r.right:GetWidth() do
+            s = s - 0.5
+            r.right:SetFont(f, s, fl)
+          end
+        end
       end
     end
     r:Show()
