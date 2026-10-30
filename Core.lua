@@ -1769,8 +1769,13 @@ local function BuildBody(b)
   end
   -- the image link, then the extras, come last: older versions stop reading before them
   local extra = ExtraString(b, index)
-  if (b.link and b.link ~= "") or extra ~= "" then PutStr(out, b.link or "") end
-  if extra ~= "" then PutStr(out, extra) end
+  -- the talents, as a code ("Arms/deep_wounds=1;..."). The addon only keeps what it was given:
+  -- the website's own talent text starts with "{" and is not a code, so it is not written here.
+  local tc = b.talent or ""
+  if string.sub(tc, 1, 1) == "{" then tc = "" end
+  if (b.link and b.link ~= "") or extra ~= "" or tc ~= "" then PutStr(out, b.link or "") end
+  if extra ~= "" or tc ~= "" then PutStr(out, extra) end
+  if tc ~= "" then PutStr(out, tc) end
   return table.concat(out)
 end
 
@@ -1845,6 +1850,8 @@ local function ReadBody(body)
   b.link = r:Str() or ""
   local extra = r:Str()
   if extra then ReadExtra(b, extra, placed) end
+  local tc = r:Str()
+  if tc and tc ~= "" then b.talent = tc end
   return b, skipped
 end
 
