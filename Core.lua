@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.9.0"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.9.1"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
