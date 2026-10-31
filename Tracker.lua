@@ -1119,12 +1119,13 @@ local GORDER = { "ring", "trinket", "amulet" }
 local GNAME = { spell = "Spells", ring = "Rings", trinket = "Trinkets", amulet = "Amulets" }
 
 -- What is still to take: spells and jewelry not taken yet; taken ones leave the box.
--- Alternatives stay out, except the amulet's, which get a turquoise frame.
+-- Alternatives stay out, except the amulet's, which get a turquoise frame; amulets also stay once one is worn.
 local function Wanted(r, isSpell)
-  if (r.pick.t == "spell") ~= isSpell or r.owned or r.blocked or r.hide then return false end
-  local amuletAlt = r.pick.alt and AB.GROUP[r.pick.t] == "amulet"
-  if (r.pick.alt or r.extra) and not amuletAlt then return false end
-  return true, amuletAlt
+  if (r.pick.t == "spell") ~= isSpell or r.owned or r.hide then return false end
+  -- amulets stay listed even with the slot taken (the main one and the alternatives)
+  local amulet = AB.GROUP[r.pick.t] == "amulet"
+  if not amulet and (r.blocked or r.pick.alt or r.extra) then return false end
+  return true, amulet and r.pick.alt
 end
 
 -- glow colours: spell to take, spell to banish, jewelry, amulet alternative

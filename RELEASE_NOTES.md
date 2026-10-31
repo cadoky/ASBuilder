@@ -1,1 +1,1 @@
-Banish list spells you haven't banished yet now say "take then banish" in the tracker instead of "missing", so it doesn't look like something is wrong. The text shrinks to fit.
+Amulets no longer disappear from the tracker once you wear one. The main amulet and the alternatives stay at the bottom of the jewelry list and in the selection box, so you can still see what else you planned.

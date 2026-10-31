@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.9.2"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.9.3"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -1347,7 +1347,7 @@ function AB.Evaluate(b, live, whole)
         end
       end
       for i = 1, table.getn(list) do
-        if not rep[list[i]] then list[i].extra = true; list[i].hide = worn >= cap end
+        if not rep[list[i]] then list[i].extra = true; list[i].hide = worn >= cap and jgroups[g] ~= "amulet" end
       end
     end
   end
