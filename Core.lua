@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.9.3"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.10.0"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -103,6 +103,7 @@ function AB.Info(cls, p)
     local s = AB.spellIndex[cls] and AB.spellIndex[cls][p.k]
     if not s then return nil end
     if p.t == "spell" then return { name = s.name, icon = s.icon, data = s } end
+    if not s.amulet then return nil end   -- the spell has no legendary amulet (any more)
     return { name = s.amulet, icon = (ASBuilder_AmuletIcons and ASBuilder_AmuletIcons[s.amulet]) or "INV_Jewelry_Necklace_16", data = s, spell = s }
   elseif p.t == "ring" then
     local d = AB.ringByName[p.k]
@@ -1784,6 +1785,44 @@ function AB.Export(b)
   return "ASB2:" .. Sum2(data) .. data
 end
 
+-- Talents that grant a spell (same table as the website's GRANTS): the spell can only be
+-- picked while the talent is taken, and a build with the talent gets the spell automatically.
+AB.GRANTS = { { talent = "rockbiter_initiation", class = "shaman", spell = "rockbiter" } }
+
+function AB.GrantedBy(cls, spell)
+  for i = 1, table.getn(AB.GRANTS) do
+    local g = AB.GRANTS[i]
+    if g.class == cls and g.spell == spell then return g.talent end
+  end
+end
+
+-- the talent text is the site's JSON or an ASB2 "tree/key=rank;..." code: a key present with a rank above 0
+local function HasTalent(talent, key)
+  local _, e = string.find(talent or "", key, 1, true)
+  if not e then return false end
+  local _, _, rank = string.find(talent, "^[=:\"]+(%d+)", e + 1)
+  return rank ~= nil and tonumber(rank) > 0
+end
+function AB.HasTalent(b, key) return HasTalent(b.talent, key) end
+
+-- adds a talent's granted spell to every stage that lacks it (never removes: the spell can be picked without the talent)
+function AB.SyncGrants(b)
+  for i = 1, table.getn(AB.GRANTS) do
+    local g = AB.GRANTS[i]
+    if g.class == b.class then
+      local on = HasTalent(b.talent, g.talent)
+      for s = 1, table.getn(b.variants) do
+        local view = { class = b.class, picks = b.variants[s].picks }
+        local idx = AB.FindPick(view, "spell", g.spell)
+        if on and not idx then
+          local p = { t = "spell", k = g.spell, r = 0 }
+          if AB.Fit(view, p) then table.insert(view.picks, p) end
+        end
+      end
+    end
+  end
+end
+
 -- reads a build's bytes into a build; returns the build and how many picks were skipped
 local function ReadBody(body)
   local bad = T("The code is damaged or incomplete.")
@@ -1852,6 +1891,7 @@ local function ReadBody(body)
   if extra then ReadExtra(b, extra, placed) end
   local tc = r:Str()
   if tc and tc ~= "" then b.talent = tc end
+  AB.SyncGrants(b)
   return b, skipped
 end
 
@@ -2003,6 +2043,7 @@ function AB.ImportProfile(code)
       local b, skipped = ReadBody(raw)
       if not b then return nil, skipped end
       b.uid, b.rev, b.talent = uid, rev, talent
+      AB.SyncGrants(b)
       table.insert(entries, { uid = uid, rev = rev, build = b, skipped = skipped })
     end
   end

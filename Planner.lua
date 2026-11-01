@@ -255,13 +255,16 @@ local SECTIONS = {
 }
 
 -- the picks a section offers for a class, as { t, k } in the data's order
-local function Offers(kind, cls)
+local function Offers(kind, cls, b)
   local D, out = ASBuilder_Data, {}
   if kind == "spell" or kind == "legend" then
     local c = AB.ClassInfo(cls)
     if c then
       for i = 1, table.getn(c.spells) do
-        if kind == "spell" or c.spells[i].amulet then table.insert(out, { t = kind, k = c.spells[i].key }) end
+        local sp = c.spells[i]
+        if kind == "spell" or sp.amulet then
+          table.insert(out, { t = kind, k = sp.key })
+        end
       end
     end
   elseif kind == "ring" then
@@ -397,7 +400,7 @@ local function RefreshPalette(b)
     local sec = P.sections[s]
     local kind = sec.def.kind
     local group = AB.GROUP[kind]
-    local offers = Offers(kind, b.class)
+    local offers = Offers(kind, b.class, b)
     local have, max = AB.CountGroup(b, group), AB.MAX[group]
     local full = have >= max
     local label = T(sec.def.label)
