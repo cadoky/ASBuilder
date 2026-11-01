@@ -23,6 +23,17 @@ import time
 KEY_RE = re.compile(r'^[a-z0-9_]+$')
 ICON_RE = re.compile(r'^(INV|Spell|Ability|Racial|Achievement|Trade|Temp)_[A-Za-z0-9_]+$')
 LEG_ICON_RE = re.compile(r'INV_Jewelry_Necklace_(?:[A-Za-z]+_\d+|\d+(?:Naxxramas)?)')
+SHAMAN_NECKLACES = {'stormstrike': 'Eye of the Tempest', 'fire_nova': 'Cinderheart Pendant', 'frost_shock': "Winter's Embrace",
+                    'earth_shock': 'Earthshatter Seal', 'flame_shock': 'Emberwake Pendant', 'rockbiter': 'Heart of the Earthbreaker'}
+# in-game icons: each new necklace reuses an older one (seen in the in-game details panel, 0.134.0)
+SHAMAN_ICONS = {'Eye of the Tempest': 'INV_Jewelry_Necklace_16', 'Cinderheart Pendant': 'INV_Jewelry_Necklace_AhnQiraj_04',
+                'Emberwake Pendant': 'INV_Jewelry_Necklace_AhnQiraj_03', 'Earthshatter Seal': 'INV_Jewelry_Necklace_28Naxxramas', "Winter's Embrace": 'INV_Jewelry_Necklace_19',
+                'Heart of the Earthbreaker': 'INV_Jewelry_Necklace_18'}
+# 0.137.0: the game's list now holds the Shaman necklaces too, ahead of the kind list; they are dropped from it (SHAMAN_NECKLACES adds them back)
+# and an icon the game shares with a newer necklace is not stored again beside the name, so those are filled in here
+LEGEND_ICON_FALLBACK = {'Eye of the Splitting Sky': 'INV_Jewelry_Necklace_16', 'Amulet of the Inferno': 'INV_Jewelry_Necklace_AhnQiraj_04',
+                        'Medallion of the Bladestorm': 'INV_Jewelry_Necklace_18'}
+SHAMAN_NO_AMULET = ['healing_wave', 'lightning_shield']   # the Shaman no longer gets The Eternal Talisman (0.134.0)
 RARITY = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "PvP"]
 LOC_LANGS = ['zh', 'es', 'fr', 'pt', 'ru', 'de', 'ja', 'tr', 'ko']   # the addon's languages besides English (the most spoken ones the game ships)
 LOC_UI = ['Remove', 'Close', 'Done', 'Banish', 'Import', 'Unsaved changes', 'Legendary amulet · remakes {spell}',
@@ -248,6 +259,16 @@ def extract(path):
         if m:
             pos = m.end()
 
+    legend = [x for x in legend if x['name'] not in SHAMAN_ICONS]
+    for x in legend:
+        x['icon'] = x['icon'] or LEGEND_ICON_FALLBACK.get(x['name'])
+
+    # shortcut: since 0.134.0 The Eternal Talisman sits before the list (junk bytes between name and icon), so it is read by hand; recheck on updates
+    m = re.search(rb'The Eternal Talisman[^A-Za-z]{0,12}(INV_Jewelry_Necklace_\d+)', d[a - 400:a])
+    if m and not any(x['name'] == 'The Eternal Talisman' for x in legend):
+        i = next((n for n, x in enumerate(legend) if x['name'] == 'Amulet of the Ancients'), len(legend))
+        legend.insert(i, dict(name='The Eternal Talisman', icon=m.group(1).decode()))
+
     # spells: key, name, icon, effects, numbers; spell id at +64, legendary kind at +117 (120 bytes)
     abkeys = [k[8:-5] for k in ekeys if k.startswith('ability.') and k.endswith('.name')]
     def bvalid(o):
@@ -269,6 +290,16 @@ def extract(path):
         spells['demonic_empowerment']['amulet'] = LEGION
         legend += legion
 
+    # shortcut: 0.134.0 Shaman necklaces are per spell, named in code outside the kind list (no icons in the game's table); recheck on updates
+    for sk, nm in SHAMAN_NECKLACES.items():
+        if sk in spells:
+            spells[sk]['amulet'] = nm
+            legend.append(dict(name=nm, icon=SHAMAN_ICONS.get(nm)))
+    for sk in SHAMAN_NO_AMULET:
+        if sk in spells:
+            spells[sk]['amulet'] = None
+            spells[sk]['noamulet'] = True
+
     # classes: key, name, spells, starting spell, colour, icon, blurb (144 bytes)
     ckeys = [k[6:-5] for k in ekeys if k.startswith('class.') and k.endswith('.name')]
     def cvalid(o):
@@ -285,9 +316,12 @@ def extract(path):
             if not sp:
                 warn.append('spell "%s" of %s is not in the spell table' % (k, row['name']))
                 continue
-            if not sp['amulet']:
+            if not sp['amulet'] and not sp.get('noamulet'):
                 warn.append('spell "%s" has a legendary amulet kind (%d) the extractor does not know' % (k, sp['kind']))
             row['spells'].append(sp)
+        if row['key'] == 'shaman' and 'rockbiter' in spells and 'rockbiter' not in keys:
+            # shortcut: Rockbiter Weapon is learned only through a talent (0.134.0), so the class list omits it, yet it has a legendary amulet; recheck on updates
+            row['spells'].append(spells['rockbiter'])
         classes.append(row)
 
     # names in every language -> English, for recognising worn jewelry

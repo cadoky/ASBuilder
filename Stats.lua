@@ -98,9 +98,9 @@ ASBuilder_LegendStats = {
     frost_shock = { "Frost Shock slows by 70% for 6 sec", "Frost Shock deals 75% more damage to already chilled enemies" },
     magma_totem = { "Magma Totem: +100% duration", "Magma Totem: +50% area", "Magma Totem: +50% damage", "Every totem pulse heals you 1% of max health" },
     searing_totem = { "Searing Totem: +100% duration", "Searing Totem: +50% damage", "Every totem pulse heals you 1% of max health" },
-    rockbiter = { "Rockbiter Weapon: +4 targets", "Rockbiter Weapon: +50% damage", "Rockbiter Weapon's hits burn and bleed for 80% more over 6 sec" },
-    stormstrike = { "Every fourth Stormstrike strikes again for 100% damage", "At rank 5 and 10, the follow-up gains one additional target" },
-    fire_nova = { "Fire Nova: +50% area", "Fire Nova: +25% damage", "Fire Nova's hits stun for 1.5 sec" },
+    rockbiter = { "Rockbiter Weapon: +30% damage", "Each cast's first hit sends a shockwave for 40% damage to enemies within 6 yd" },
+    stormstrike = { "20% chance on each Stormstrike attack to cast a free Chain Lightning at 100% damage" },
+    fire_nova = { "Fire Nova: +60% area", "Fire Nova: +30% damage", "Fire Nova instantly deals 40% of the Flame Shock damage left on each enemy it hits, without removing the Flame Shock" },
   },
   mage = {
     fireball = { "Fireball: +1 target", "Fireball: +20% damage", "Fireball's hits leap to 2 more enemies for 30%" },

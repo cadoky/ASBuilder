@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.10.0"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.11.0"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -232,7 +232,7 @@ function AB.FillTooltip(tt, cls, p)
     end
     local fx = AB.LegendStats(cls, d.key)
     if fx then
-      for i = 1, table.getn(fx) do tt:AddLine(fx[i], 0.12, 1, 0, 1) end
+      for i = 1, table.getn(fx) do tt:AddLine(AB.N(fx[i]), 0.12, 1, 0, 1) end
     end
   elseif p.t == "ring" or p.t == "trinket" then
     tt:SetText(AB.N(info.name), 1, 1, 1)
@@ -244,7 +244,7 @@ function AB.FillTooltip(tt, cls, p)
     tt:AddLine(T(d.rarity or "Common") .. " " .. T("amulet"), gray, gray, gray)
     local base = AB.AmuletStats(d.key)
     if base then
-      for i = 1, table.getn(base) do tt:AddLine(base[i], 0.12, 1, 0, 1) end
+      for i = 1, table.getn(base) do tt:AddLine(AB.N(base[i]), 0.12, 1, 0, 1) end
       tt:AddLine(T("Base values. Offered again while worn, they grow toward 3x."), 0.5, 0.5, 0.5, 1)
       Seen()
     elseif not Seen() then
@@ -257,7 +257,7 @@ function AB.FillTooltip(tt, cls, p)
     if LegendUses(info.name) == 1 and Seen() then
       tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
     elseif fx then
-      for i = 1, table.getn(fx) do tt:AddLine(fx[i], 0.12, 1, 0, 1) end
+      for i = 1, table.getn(fx) do tt:AddLine(AB.N(fx[i]), 0.12, 1, 0, 1) end
       tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
     elseif not Seen() then
       tt:AddLine(T("Offered only once you know the spell."), 0.5, 0.5, 0.5, 1)
@@ -1787,7 +1787,7 @@ end
 
 -- Talents that grant a spell (same table as the website's GRANTS): the spell can only be
 -- picked while the talent is taken, and a build with the talent gets the spell automatically.
-AB.GRANTS = { { talent = "rockbiter_initiation", class = "shaman", spell = "rockbiter" } }
+AB.GRANTS = { { talent = "rockbiter_initiation", class = "shaman", spell = "rockbiter" }, { talent = "enh_stormbound_echoes", class = "shaman", spell = "stormstrike" } }
 
 function AB.GrantedBy(cls, spell)
   for i = 1, table.getn(AB.GRANTS) do

@@ -84,6 +84,34 @@ local function BuildList(f)
   head:SetPoint("TOPLEFT", f, "TOPLEFT", 14, -44)
   L(head, "Builds")
 
+  -- move the selected build up or down the list (the order is only local: no rev bump, nothing to sync)
+  local function Move(step)
+    local list, at = AB.Builds(), nil
+    for i = 1, table.getn(list) do
+      if list[i].id == P.selected then at = i end
+    end
+    local to = at and at + step
+    if not to or to < 1 or to > table.getn(list) then return end
+    list[at], list[to] = list[to], list[at]
+    if to <= P.offset then P.offset = to - 1 end
+    if to > P.offset + LIST_ROWS then P.offset = to - LIST_ROWS end
+    P.RefreshList()
+  end
+  local function MoveButton(step, x, tex, tip)
+    local m = W.Button(f, "", 20, 18)
+    m:SetPoint("TOPLEFT", f, "TOPLEFT", x, -40)
+    m.arrow = m:CreateTexture(nil, "OVERLAY")
+    m.arrow:SetTexture(tex)
+    m.arrow:SetWidth(18)
+    m.arrow:SetHeight(18)
+    m.arrow:SetPoint("CENTER", m, "CENTER", 0, 0)
+    m:SetScript("OnClick", function() Move(step) end)
+    W.Tip(m, function(self, tt) tt:SetText(T(tip), 1, 1, 1) end)
+    return m
+  end
+  P.bUp = MoveButton(-1, 142, "Interface\\Buttons\\UI-ScrollBar-ScrollUpButton-Up", "Move up")
+  P.bDown = MoveButton(1, 166, "Interface\\Buttons\\UI-ScrollBar-ScrollDownButton-Up", "Move down")
+
   local area = CreateFrame("Frame", nil, f)
   area:SetPoint("TOPLEFT", f, "TOPLEFT", 12, -62)
   area:SetWidth(176)
