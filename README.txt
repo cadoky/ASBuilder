@@ -16,7 +16,7 @@ COMMANDS
 PLANNER
   - New makes an empty build for your character's class. Name and class are at the top.
   - Stages: every build has four stages, Early Game, Mid Game, End Game and Endless (the
-    tabs along the top). Each stage has its own picks, target ranks, banishes and notes.
+    tabs along the top). Each stage has its own picks, target ranks and banishes; a build has one note.
     Type in the box on the right of the tabs to rename the selected stage. "Copy previous"
     fills a stage with the stage before it, to build on (raise targets, swap pieces).
   - Stage checks: in a run, spells, rings and trinkets stay once taken (only the amulet can
@@ -35,12 +35,9 @@ PLANNER
   - Clear (above the list) empties the open tab in the stage being edited: Spells (with
     the banish marks), Rings, Trinkets or Amulet. Like every change, Save keeps it.
   - Banish: the Banish button on a spell row (or right-click a spell icon) marks the spell
-    to banish when its card comes up. It takes no spell slot; 3 at most.
+    to banish when its card comes up. It still counts toward the 6 spells; 3 banishes at most.
   - Alt: on the Rings and Trinkets tabs mark up to two pieces, on the Amulet tab up to three,
     as alternatives (blue). Wearing an alternative fills a slot of its kind just as well.
-  - Ready-made builds: the addon comes with a build for every class. Each is added once;
-    your own builds, and ready-made ones you change or delete, are never touched by an
-    update.
   - Switching class keeps each class's spells (in every stage): switch back and they return.
   - Changes are a draft until you press Save. Picking another build throws unsaved changes
     away, so a build you did not save goes back to how it was. Unsaved builds show a * in

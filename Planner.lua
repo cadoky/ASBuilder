@@ -551,6 +551,7 @@ local function Priority(f)
     W.Tip(tb, function(self, tt)
       tt:SetText(T(AB.GROUP_LABEL[self.group]), 1, 0.82, 0)
       tt:AddLine(T("Top = most important"), 0.8, 0.8, 0.8)
+      if self.group == "spell" then tt:AddLine(T("Please list spells for upgrade priority"), 0.8, 0.8, 0.8) end
     end)
     P.tabs[i] = tb
   end
@@ -710,23 +711,16 @@ local function Priority(f)
   P.prioHint:SetPoint("TOP", f, "TOPLEFT", 512 + 148, -170 - VY)
   P.prioHint:SetWidth(260)
 
-  P.fill = W.Check(ed, "", function(on)
-    local d = Draft()
-    if d then d.fill = on; Changed() end
-  end)
-  P.fill:SetPoint("TOPLEFT", f, "TOPLEFT", 514, -342 - VY)
-  L(P.fill.text, "Fill empty slots before upgrading")
-
   local nl = W.Text(ed, "GameFontNormalSmall")
   nl:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -364 - VY)
   P.notesLabel = nl
-  P.notes = W.MultiEdit(ed, "ASBuilderNotes", 296, 110, 4000)
+  P.notes = W.MultiEdit(ed, "ASBuilderNotes", 296, 110, AB.NOTE_MAX)
   P.notes:SetPoint("TOPLEFT", f, "TOPLEFT", 512, -378 - VY)
   P.notes.edit:SetScript("OnTextChanged", function()
     P.notes.scroll:UpdateScrollChildRect()
     if P.filling then return end
-    local b = Selected()
-    if b then b.variant.notes = this:GetText() or ""; P.RefreshDirty() end
+    local d = Draft()
+    if d then AB.SetNote(d, this:GetText() or ""); P.RefreshDirty() end
   end)
 
   -- a link to a picture of the build (talents and so on); addons cannot open a browser,
@@ -751,7 +745,7 @@ local function Priority(f)
   end)
 
   -- notes and link only change after Edit is pressed (copying always works)
-  local nlock = W.Lock(P.notes.edit, ed, function() local b = Selected(); return b and b.variant end, "notes",
+  local nlock = W.Lock(P.notes.edit, ed, function() local d = Draft(); return d and d.variants[1] end, "notes",
     function() P.RefreshDirty() end)
   nlock:SetPoint("BOTTOMRIGHT", P.notes, "TOPRIGHT", 0, 1)
   local llock = W.Lock(P.link, ed, Draft, "link", function() P.RefreshDirty() end)
@@ -1510,7 +1504,8 @@ function P.Refresh()
   elseif P.nameEdit:GetText() ~= d.name and not P.nameFocus then
     P.nameEdit:SetText(d.name)
   end
-  if P.notes.edit:GetText() ~= (b.variant.notes or "") then P.notes.edit:SetText(b.variant.notes or "") end
+  local note = AB.Note(d)
+  if P.notes.edit:GetText() ~= note then P.notes.edit:SetText(note) end
   if P.link:GetText() ~= (d.link or "") and not P.link.focus then P.link:SetText(d.link or "") end
   for i = 1, table.getn(P.stats) do
     local e = P.stats[i]
@@ -1521,7 +1516,7 @@ function P.Refresh()
   if P.stageEdit:GetText() ~= b.variant.name and not P.stageFocus then P.stageEdit:SetText(b.variant.name) end
   P.filling = false
   P.RefreshStages(d)
-  P.notesLabel:SetText(T("Notes") .. "  |cff888888(" .. AB.N(b.variant.name) .. ")|r")
+  P.notesLabel:SetText(T("Notes"))
   P.statsHint:SetText(T("What your stats should reach in %s. Leave a box empty to skip it.", AB.N(b.variant.name))
     .. (AB.NowStats() and "" or ("\n" .. T("Now: open your character window (C) in a run once."))))
   P.RefreshNow()
@@ -1534,7 +1529,6 @@ function P.Refresh()
   local ci = AB.ClassInfo(b.class)
   P.className:SetText(ci and AB.N(ci.name) or "")
   P.className:SetTextColor(AB.ClassRGB(b.class))
-  P.fill:SetChecked(d.fill ~= false)
   local saved = Saved()
   local active = ASBuilderDB.active[saved.class] == saved.id
   P.useBtn:SetLabel(active and T("Active") or T("Use this build"))

@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.11.0"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.12.0"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -335,6 +335,41 @@ local function CopyStash(stash)
   return out
 end
 
+-- A build has ONE note (same as the website). It lives in the first stage; the code format still
+-- carries a note per stage, so the others stay empty. AB.Note reads the first filled one.
+AB.NOTE_MAX = 2000
+
+function AB.Note(b)
+  for i = 1, table.getn(b.variants or {}) do
+    local n = b.variants[i].notes
+    if type(n) == "string" and string.find(n, "%S") then return n end
+  end
+  return ""
+end
+
+-- cuts a text to NOTE_MAX characters (UTF-8 characters, not bytes)
+local function CutNote(s)
+  local n = 0
+  for i = 1, string.len(s) do
+    local c = string.byte(s, i)
+    if c < 128 or c >= 192 then
+      n = n + 1
+      if n > AB.NOTE_MAX then return string.sub(s, 1, i - 1) end
+    end
+  end
+  return s
+end
+
+function AB.SetNote(b, text)
+  local n = CutNote(text or "")
+  for i = 1, table.getn(b.variants) do b.variants[i].notes = (i == 1) and n or "" end
+end
+
+-- older builds kept a note per stage: the first filled one stays, in the first stage
+local function OneNote(b)
+  AB.SetNote(b, AB.Note(b))
+end
+
 -- brings an older saved build up to date: one list of picks becomes the first stage
 local function Upgrade(b)
   if type(b.variants) ~= "table" or table.getn(b.variants) == 0 then
@@ -361,7 +396,8 @@ local function Upgrade(b)
     if type(byStage) ~= "table" then b.stash[cls] = nil
     elseif byStage[1] and byStage[1].t then b.stash[cls] = { [1] = byStage } end
   end
-  if b.fill == nil then b.fill = true end
+  b.fill = true   -- "fill empty slots before upgrading" is always on now (the switch is gone)
+  OneNote(b)
   -- rev counts saves, to tell which copy of a build is newer when profiles travel between the
   -- game and the website; talent holds what the website writes (the addon only keeps it)
   if type(b.rev) ~= "number" or b.rev < 1 then b.rev = 1 end
@@ -767,12 +803,12 @@ end
 -- of its group just as well.
 AB.MAX_ALT = AB.ALTS.amulet
 
--- picks that take a place in the group (a spell marked to banish takes none)
+-- picks that take a place in the group (a banished spell keeps one of the 6 spell places)
 function AB.CountGroup(b, group)
   local n = 0
   for i = 1, table.getn(b.picks) do
     local p = b.picks[i]
-    if AB.GROUP[p.t] == group and not p.ban then n = n + 1 end
+    if AB.GROUP[p.t] == group and (group == "spell" or not p.ban) then n = n + 1 end
   end
   return n
 end
@@ -827,6 +863,7 @@ function AB.TogglePick(b, t, k, ban)
   if i then table.remove(b.picks, i); return true end
   if ban then
     if t ~= "spell" then return false end
+    if AB.CountGroup(b, "spell") >= AB.MAX.spell then return false, FullMsg("spell") end
     if AB.CountBans(b) >= AB.MAX_BAN then return false, T("Banish list full (%d at most)", AB.MAX_BAN) end
     table.insert(b.picks, { t = t, k = k, r = 0, ban = true })
     return true
@@ -854,8 +891,7 @@ function AB.ToggleBan(b, i)
   local p = b.picks[i]
   if not p or p.t ~= "spell" then return false end
   if p.ban then
-    if AB.CountGroup(b, "spell") >= AB.MAX.spell then return false, FullMsg("spell") end
-    p.ban = nil
+    p.ban = nil   -- a banished spell already holds one of the 6 places
   else
     if AB.CountBans(b) >= AB.MAX_BAN then return false, T("Banish list full (%d at most)", AB.MAX_BAN) end
     p.ban = true
@@ -1730,7 +1766,7 @@ end
 local function BuildBody(b)
   local out = { string.char(4) }
   PutStr(out, b.class)
-  table.insert(out, string.char((b.fill == false) and 0 or 1))
+  table.insert(out, string.char(1))   -- fill: always on
   PutStr(out, (string.gsub(b.name or "", "[\r\n]", " ")))
   -- the distinct picks, in order of first use
   local items, index = {}, {}
@@ -1766,7 +1802,7 @@ local function BuildBody(b)
       PutVar(out, (index[p.t .. "\1" .. PickKey(p)] - 1) * 4 + flag)
       PutVar(out, math.floor((p.r or 0) * 10 + 0.5))
     end
-    PutStr(out, v.notes or "")
+    PutStr(out, (i == 1) and CutNote(AB.Note(b)) or "")   -- one note, in the first stage
   end
   -- the image link, then the extras, come last: older versions stop reading before them
   local extra = ExtraString(b, index)
@@ -1848,7 +1884,7 @@ local function ReadBody(body)
       items[i] = {}   -- not in this version of the game: its picks are skipped
     end
   end
-  local b = { class = cls, fill = fill ~= 0, name = name, variants = AB.NewVariants() }
+  local b = { class = cls, fill = true, name = name, variants = AB.NewVariants() }
   if b.name == "" then b.name = "New build" end
   local nStages = r:Var()
   if not nStages then return nil, bad end
@@ -1886,6 +1922,7 @@ local function ReadBody(body)
       v.notes = notes
     end
   end
+  OneNote(b)
   b.link = r:Str() or ""
   local extra = r:Str()
   if extra then ReadExtra(b, extra, placed) end
@@ -1905,7 +1942,7 @@ end
 -- Version 3 (2 with value targets for jewelry): the class, the setting, the name and every stage (name, picks, notes).
 function AB.ExportV3(b)
   local name = string.gsub(b.name or "", "[\r\n]", " ")
-  local lines = { "3", b.class, (b.fill == false) and "0" or "1", name, tostring(table.getn(b.variants)) }
+  local lines = { "3", b.class, "1", name, tostring(table.getn(b.variants)) }
   for i = 1, table.getn(b.variants) do
     local v = b.variants[i]
     table.insert(lines, (string.gsub(v.name or "", "[\r\n]", " ")))
@@ -1956,7 +1993,7 @@ function AB.Import(code)
   if version ~= "1" and version ~= "2" and version ~= "3" then return nil, bad end
   local cls = lines[2]
   if not AB.classIndex[cls or ""] then return nil, T("Unknown class in the code.") end
-  local b = { class = cls, fill = lines[3] ~= "0", name = lines[4], variants = AB.NewVariants() }
+  local b = { class = cls, fill = true, name = lines[4], variants = AB.NewVariants() }
   if not b.name or b.name == "" then b.name = "New build" end
   local skipped = 0
   if version == "1" then
@@ -1984,6 +2021,7 @@ function AB.Import(code)
   if version ~= "3" then
     for i = 1, table.getn(b.variants) do AB.ClearJewelTargets(b.variants[i].picks) end
   end
+  OneNote(b)
   return b, skipped
 end
 

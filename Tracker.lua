@@ -263,8 +263,9 @@ local function Create()
       local v = TR.view and TR.view.variant
       if v then
         tt:AddLine(AB.N(v.name), 0.6, 0.8, 1)
-        if v.notes and v.notes ~= "" then tt:AddLine(v.notes, 1, 0.82, 0, 1) end
       end
+      local note = AB.Note(b)
+      if note ~= "" then tt:AddLine(note, 1, 0.82, 0, 1) end
       tt:AddLine(" ")
     else
       tt:SetText("|cff7fd4ffAS|rBuilder")
@@ -315,7 +316,9 @@ local function Create()
   W.Tip(st, function(self, tt)
     local v = TR.view and TR.view.variant
     tt:SetText(v and AB.N(v.name) or "", 0.6, 0.8, 1)
-    if v and v.notes and v.notes ~= "" then tt:AddLine(v.notes, 1, 0.82, 0, 1) end
+    local sb = AB.ActiveBuild(AB.CurrentClass())
+    local note = sb and AB.Note(sb) or ""
+    if note ~= "" then tt:AddLine(note, 1, 0.82, 0, 1) end
     tt:AddLine(" ")
     tt:AddLine(T("Moves on by itself when every pick of this stage reaches its target rank, and to the last stage when the run goes endless."), 0.7, 0.7, 0.7, 1)
     tt:AddLine(T("Click: next stage by hand (after the last one it follows the build again)."), 0.7, 0.7, 0.7, 1)
