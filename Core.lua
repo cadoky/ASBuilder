@@ -5,7 +5,7 @@ ASBuilder = {}
 local AB = ASBuilder
 local D = ASBuilder_Data
 
-AB.VERSION = "1.12.0"   -- keep in sync with ## Version in ASBuilder.toc
+AB.VERSION = "1.13.0"   -- keep in sync with ## Version in ASBuilder.toc
 
 -- how many of each a hero can hold in a run
 AB.MAX = { spell = 6, ring = 4, trinket = 4, amulet = 4 }   -- main picks + alternatives
@@ -436,6 +436,13 @@ end
 
 -- an amulet the game turned into a trinket (Star of Mystaria, 0.111.0) stays in the build as
 -- that trinket while the stage has room for it; otherwise it is dropped like any unknown pick
+-- spells the game replaced in place (same code slot, so ASB2 codes already read as the new spell): saved picks are renamed
+AB.RENAMED = { hunter = { explosive_trap = "kill_command" } }   -- 0.140.0
+local function Renamed(cls, p)
+  local to = AB.RENAMED[cls] and AB.RENAMED[cls][p.k]
+  if to and (p.t == "spell" or p.t == "legend") then p.k = to end
+end
+
 local function MovedToTrinket(stage, p)
   if p.t ~= "amulet" or AB.amuletByName[p.k] or not AB.trinketByName[p.k] then return end
   if stage and AB.CountGroup(stage, "trinket") >= AB.MAX.trinket then return end
@@ -486,6 +493,7 @@ function AB.InitDB()
       local list = b.variants[vi].picks
       for j = table.getn(list), 1, -1 do
         MovedToTrinket(b.variants[vi], list[j])
+        Renamed(b.class, list[j])
         if not AB.Info(b.class, list[j]) then table.remove(list, j) end
       end
     end
@@ -493,6 +501,7 @@ function AB.InitDB()
       for vi, list in pairs(byStage) do
         for j = table.getn(list), 1, -1 do
           MovedToTrinket(nil, list[j])
+          Renamed(cls, list[j])
           if not AB.Info(cls, list[j]) then table.remove(list, j) end
         end
       end

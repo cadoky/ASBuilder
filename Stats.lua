@@ -39,7 +39,7 @@ ASBuilder_LegendStats = {
     bloodrage = { "Bloodrage: +60% damage", "Bloodrage: +40% area", "Bloodrage: +50% proc rate" },
   },
   paladin = {
-    consecration = { "Consecration: +50% area", "Consecration: +100% duration", "Consecration: +50% damage", "Enemies Consecration kills explode for 30% of their max health, at most 2 times a second" },
+    consecration = { "Consecration: +50% area", "Consecration: +100% duration", "Enemies Consecration kills explode for 30% of their max health, at most 2 times a second" },
     exorcism = { "Exorcism: +1 target", "Exorcism: +20% damage", "Exorcism's hits leap to 2 more enemies for 30%" },
     hammer_of_wrath = { "Hammer of Wrath: +1 target", "Hammer of Wrath: +20% damage", "Hammer of Wrath's hits leap to 2 more enemies for 30%" },
     holy_shock = { "Holy Shock: +4 targets", "Holy Shock: +20% damage", "30% chance for Holy Shock's hits to strike again for 100%" },
@@ -57,7 +57,8 @@ ASBuilder_LegendStats = {
     multi_shot = { "Multi-Shot: +1 target", "Multi-Shot: +20% damage", "Multi-Shot's hits leap to 2 more enemies for 30%" },
     serpent_sting = { "Serpent Sting: +3 targets", "Serpent Sting: +90% damage", "Enemies that die with Serpent Sting on them explode for 20% of their max health, at most 2 times a second" },
     volley = { "Volley: +50% area", "Volley: +100% duration", "Volley: +50% damage", "Enemies Volley kills explode for 30% of their max health, at most 2 times a second" },
-    explosive_trap = { "Explosive Trap: +60% area", "Explosive Trap: +35% damage", "Explosive Trap's hits stun for 1.5 sec" },
+    -- 0.140.0: Heart of the Packlord, from the in-game details panel
+    kill_command = { "Wolf: Howl makes 6 nearby enemies take 15% more damage from you", "Raptor: Kill Command bleeds nearby enemies for 40% of its strike damage over 5 sec", "Devilsaur Matriarch: Kill Command unleashes a devastating shockwave" },
     concussive_shot = { "Concussive Shot: +1 target", "Concussive Shot: +20% damage", "Concussive Shot's hits leap to 2 more enemies for 30%" },
     aimed_shot = { "Aimed Shot: +1 target", "Aimed Shot: +20% damage", "Aimed Shot's hits leap to 2 more enemies for 30%" },
     immolation_trap = { "Immolation Trap: +50% area", "Immolation Trap: +100% duration", "Immolation Trap: +50% damage", "Enemies Immolation Trap kills explode for 30% of their max health, at most 2 times a second" },
@@ -82,7 +83,7 @@ ASBuilder_LegendStats = {
     sw_pain = { "Shadow Word: Pain: +3 targets", "Shadow Word: Pain: +90% damage", "Enemies that die with Shadow Word: Pain on them explode for 20% of their max health, at most 2 times a second" },
     mind_blast = { "Mind Blast: +1 target", "Mind Blast: +20% damage", "Mind Blast's hits leap to 2 more enemies for 30%" },
     holy_nova = { "Holy Nova: +60% area", "Holy Nova: +35% damage", "Holy Nova's hits stun for 1.5 sec" },
-    pw_shield = { "Power Word: Shield: +26% absorb", "Power Word: Shield: -35% cooldown", "A broken shield bursts for 50% of what it absorbed on enemies within 10 yd" },
+    pw_shield = { "Power Word: Shield: +50% absorb cap", "Power Word: Shield: -35% cooldown", "A broken shield bursts for 50% of what it absorbed on enemies within 10 yd" },
     renew = { "Renew becomes Vampiric Renew", "Renew: +26% healing", "Renew: -35% cooldown", "While Renew heals you, 5% of the damage you deal heals you too" },
     holy_fire = { "Holy Fire: +1 target", "Holy Fire: +20% damage", "Holy Fire's hits leap to 2 more enemies for 30%" },
     mind_flay = { "Mind Flay: +60% area", "Mind Flay: +30% damage", "Mind Flay's hits burn and bleed for 50% more over 4 sec" },
@@ -99,7 +100,7 @@ ASBuilder_LegendStats = {
     magma_totem = { "Magma Totem: +100% duration", "Magma Totem: +50% area", "Magma Totem: +50% damage", "Every totem pulse heals you 1% of max health" },
     searing_totem = { "Searing Totem: +100% duration", "Searing Totem: +50% damage", "Every totem pulse heals you 1% of max health" },
     rockbiter = { "Rockbiter Weapon: +30% damage", "Each cast's first hit sends a shockwave for 40% damage to enemies within 6 yd" },
-    stormstrike = { "20% chance on each Stormstrike attack to cast a free Chain Lightning at 100% damage" },
+    stormstrike = { "Stormstrike: +35% damage to bosses, elites and Guardians", "20% chance on each Stormstrike attack to cast a free Chain Lightning at 100% damage" },
     fire_nova = { "Fire Nova: +60% area", "Fire Nova: +30% damage", "Fire Nova instantly deals 40% of the Flame Shock damage left on each enemy it hits, without removing the Flame Shock" },
   },
   mage = {
@@ -114,7 +115,7 @@ ASBuilder_LegendStats = {
     cone_of_cold = { "Cone of Cold: +60% area", "Cone of Cold: +30% damage", "Cone of Cold's hits burn and bleed for 50% more over 4 sec" },
     blast_wave = { "Blast Wave: +60% area", "Blast Wave: +35% damage", "Blast Wave's hits stun for 1.5 sec" },
     pyroblast = { "Pyroblast: +1 target", "Pyroblast: +20% damage", "Pyroblast's hits leap to 2 more enemies for 30%" },
-    ice_barrier = { "Ice Barrier: +26% absorb", "Ice Barrier: -35% cooldown", "Ice Barrier: +100% absorb", "A broken shield bursts for 50% of what it absorbed on enemies within 10 yd" },
+    ice_barrier = { "Ice Barrier: +100% absorb cap", "Ice Barrier: -35% cooldown", "A broken shield bursts for 50% of what it absorbed on enemies within 10 yd" },
     polymorph = { "Polymorph: +60% damage", "Polymorph: +40% area", "Polymorph explodes a second time for 50% of its damage" },
   },
   warlock = {

@@ -32,7 +32,10 @@ SHAMAN_ICONS = {'Eye of the Tempest': 'INV_Jewelry_Necklace_16', 'Cinderheart Pe
 # 0.137.0: the game's list now holds the Shaman necklaces too, ahead of the kind list; they are dropped from it (SHAMAN_NECKLACES adds them back)
 # and an icon the game shares with a newer necklace is not stored again beside the name, so those are filled in here
 LEGEND_ICON_FALLBACK = {'Eye of the Splitting Sky': 'INV_Jewelry_Necklace_16', 'Amulet of the Inferno': 'INV_Jewelry_Necklace_AhnQiraj_04',
-                        'Medallion of the Bladestorm': 'INV_Jewelry_Necklace_18'}
+                        'Medallion of the Bladestorm': 'INV_Jewelry_Necklace_18',
+                        'Heart of the Packlord': 'INV_Jewelry_Necklace_AhnQiraj_03'}   # 0.140.0: Packlord replaced Earthshaker for Kill Command, no icon of its own beside the name
+# shortcut: 0.140.0 put non-amulet names ("Vampiric Rejuvenation") inside the kind list, which shifted Kill Command's kind; recheck on updates
+LEGEND_NOT = {'Vampiric Rejuvenation', 'Vampiric Renew'}
 SHAMAN_NO_AMULET = ['healing_wave', 'lightning_shield']   # the Shaman no longer gets The Eternal Talisman (0.134.0)
 RARITY = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "PvP"]
 LOC_LANGS = ['zh', 'es', 'fr', 'pt', 'ru', 'de', 'ja', 'tr', 'ko']   # the addon's languages besides English (the most spoken ones the game ships)
@@ -259,7 +262,7 @@ def extract(path):
         if m:
             pos = m.end()
 
-    legend = [x for x in legend if x['name'] not in SHAMAN_ICONS]
+    legend = [x for x in legend if x['name'] not in SHAMAN_ICONS and x['name'] not in LEGEND_NOT]
     for x in legend:
         x['icon'] = x['icon'] or LEGEND_ICON_FALLBACK.get(x['name'])
 

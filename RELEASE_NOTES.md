@@ -1,7 +1,5 @@
-Matched with the website, and the example builds are gone.
+Updated for game 0.140.0.
 
-- A build now has one note instead of one per stage, same as on the website. It can be up to 2000 characters. If you import an older build with several notes, the first filled one is kept.
-- "Fill empty slots before upgrading" is always on now, so the checkbox is gone.
-- A banished spell now counts toward the 6 spells, same as on the website. You can still banish up to 3.
-- The Spells tab tooltip in the planner now says "Please list spells for upgrade priority".
-- New installs start with no example builds, they were out of date. Your own builds stay as they are.
+- Hunter: Kill Command replaces Explosive Trap, with its new legendary amulet, Heart of the Packlord. Your saved builds switch Explosive Trap to Kill Command on their own, and so do imported codes.
+- Amulet tooltips match the game again: Heart of the Packlord, Ice Barrier and Power Word: Shield (The Eternal Talisman) now raise the absorb cap, Eye of the Tempest adds +35% Stormstrike damage to bosses, elites and Guardians, and Amulet of the Inferno no longer lists its Consecration damage.
+- Spell, amulet and effect names are updated in every language.
