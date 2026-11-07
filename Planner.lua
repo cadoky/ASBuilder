@@ -1436,7 +1436,7 @@ local function Create()
   local choiceBtn = P.ChoiceButtons(f, P.LangMenu(f, P.FontMenu(f, close)))
   local more = W.Text(f, "GameFontNormalSmall")
   more:SetPoint("RIGHT", choiceBtn, "LEFT", -12, 0)
-  more:SetText("Find more build: asbuilder.app")
+  more:SetText("Find more build: asbuilds.app")
 
   -- thin dividers between the three columns
   for _, x in ipairs({ 194, 506, 814 }) do
