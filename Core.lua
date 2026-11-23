@@ -481,10 +481,8 @@ function AB.InitDB()
   -- spells marked banished on the tracker this run (the game does not tell addons)
   if type(db.run.banished) ~= "table" then db.run.banished = {} end
   if type(db.seen) ~= "table" then db.seen = {} end
-  -- every time you enter the game no build is chosen: pick one from the tracker's menu.
-  -- A /reload keeps the choice (the game only logs out when you really leave).
-  if db.session ~= "open" then db.active = {} end
-  db.session = "open"
+  -- each class keeps the build last chosen for it, across restarts, until you pick another or None
+  db.session = nil
   for i = 1, table.getn(db.builds) do
     local b = db.builds[i]
     Upgrade(b)
@@ -2176,12 +2174,7 @@ local core = CreateFrame("Frame", "ASBuilderCore", UIParent)
 core:RegisterEvent("VARIABLES_LOADED")
 core:RegisterEvent("PLAYER_ENTERING_WORLD")
 core:RegisterEvent("UNIT_INVENTORY_CHANGED")
-core:RegisterEvent("PLAYER_LOGOUT")
 core:SetScript("OnEvent", function()
-  if event == "PLAYER_LOGOUT" then
-    if type(ASBuilderDB) == "table" then ASBuilderDB.session = "closed" end
-    return
-  end
   if event == "VARIABLES_LOADED" then
     AB.InitDB()
     AB.ready = true

@@ -61,8 +61,8 @@ PLANNER
 TRACKER (while you play) - three separate panels
   BUILD
   - The header is the build menu: click it to choose one of your saved builds of the
-    hero's class (or None, or open the planner). Every time you enter the game no build is
-    chosen; a /reload keeps the choice.
+    hero's class (or None, or open the planner). Each class remembers the build you last
+    chose for it, even after a restart, and loads it when you pick that class.
   - Stage: the stage being followed. It moves on by itself when every pick of the stage
     reaches its target rank (empty stages are skipped), and to the Endless stage when the
     run goes endless. Click it to step to another stage by hand.
